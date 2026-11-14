@@ -181,6 +181,10 @@ class HomeScreenViewModel @Inject constructor(
                     _stateFlow.update { it.copy(itemBeingEdited = null) }
                 }
             }
+            is TileEvent.OnAppUninstalled -> {
+                uninstallApp(event.item.app)
+                _stateFlow.update { it.copy(itemBeingEdited = null) }
+            }
             TileEvent.OnDismissEditMode -> {
                 _stateFlow.update { it.copy(itemBeingEdited = null) }
             }

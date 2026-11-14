@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
+import android.content.res.Configuration
 
 class LauncherAppWidgetHost(
     context: Context,
@@ -15,7 +16,11 @@ class LauncherAppWidgetHost(
         appWidgetId: Int,
         appWidget: AppWidgetProviderInfo?
     ): AppWidgetHostView {
-        return LauncherAppWidgetHostView(context)
+        val config = Configuration(context.resources.configuration).apply {
+            uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or Configuration.UI_MODE_NIGHT_YES
+        }
+        val darkContext = context.createConfigurationContext(config)
+        return LauncherAppWidgetHostView(darkContext)
     }
 
     companion object {

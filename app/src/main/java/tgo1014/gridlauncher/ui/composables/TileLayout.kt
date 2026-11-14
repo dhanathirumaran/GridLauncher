@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -56,7 +57,7 @@ import eu.wewox.lazytable.LazyTableItem
 import eu.wewox.lazytable.LazyTableScrollDirection
 import eu.wewox.lazytable.LazyTableState
 import eu.wewox.lazytable.lazyTableDimensions
-import eu.wewox.lazytable.rememberSaveableLazyTableState
+import eu.wewox.lazytable.rememberLazyTableState
 import kotlin.math.roundToInt
 import tgo1014.gridlauncher.app.Constants.gridColumns
 import tgo1014.gridlauncher.domain.models.App
@@ -82,6 +83,7 @@ fun TileLayout(
     onTilePositionChanged: (itemId: Int, targetX: Int, targetY: Int) -> Unit = { _, _, _ -> },
     onTileDimensionChanged: (itemId: Int, newWidth: Int, newHeight: Int) -> Unit = { _, _, _ -> },
     onWidgetUnpinned: (item: GridItem) -> Unit = {},
+    onAppUninstalled: (item: GridItem) -> Unit = {},
     onDismissEditMode: () -> Unit = {},
     footer: @Composable (Modifier) -> Unit = {},
 ) = BoxWithConstraints(
@@ -98,7 +100,7 @@ fun TileLayout(
     val density = LocalDensity.current
     val gridItemSizePx = with(density) { gridItemSize.toPx() }
 
-    val tableState: LazyTableState = rememberSaveableLazyTableState()
+    val tableState: LazyTableState = rememberLazyTableState()
     val isScrolledToTop by remember {
         derivedStateOf {
             (tableState.minaBoxState.translate?.y ?: 0f) <= 0.5f
@@ -248,13 +250,40 @@ fun TileLayout(
                             }
                     )
 
-                    // Widget Unpin Button (Top-Right) - only on widgets
-                    if (tileItem.itemType == tgo1014.gridlauncher.ui.models.GridItemType.WIDGET) {
+                    // App Uninstall Button - only on apps
+                    if (tileItem.itemType == tgo1014.gridlauncher.ui.models.GridItemType.APP) {
+                        val alignment = if (tileItem.height == 1 && tileItem.width == 1) Alignment.TopStart else Alignment.TopEnd
+                        val btnSize = if (tileItem.height == 1 && tileItem.width == 1) 28.dp else 36.dp
+                        val iconSize = if (tileItem.height == 1 && tileItem.width == 1) 16.dp else 20.dp
                         Box(
                             modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(4.dp)
-                                .size(32.dp)
+                                .align(alignment)
+                                .padding(2.dp)
+                                .size(btnSize)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.errorContainer)
+                                .clickable { onAppUninstalled(tileItem) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Uninstall App",
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.size(iconSize)
+                            )
+                        }
+                    }
+
+                    // Widget Unpin Button - only on widgets
+                    if (tileItem.itemType == tgo1014.gridlauncher.ui.models.GridItemType.WIDGET) {
+                        val alignment = if (tileItem.height == 1 && tileItem.width == 1) Alignment.TopStart else Alignment.TopEnd
+                        val btnSize = if (tileItem.height == 1 && tileItem.width == 1) 28.dp else 36.dp
+                        val iconSize = if (tileItem.height == 1 && tileItem.width == 1) 16.dp else 20.dp
+                        Box(
+                            modifier = Modifier
+                                .align(alignment)
+                                .padding(2.dp)
+                                .size(btnSize)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.errorContainer)
                                 .clickable { onWidgetUnpinned(tileItem) },
@@ -264,7 +293,7 @@ fun TileLayout(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Unpin Widget",
                                 tint = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(iconSize)
                             )
                         }
                     }

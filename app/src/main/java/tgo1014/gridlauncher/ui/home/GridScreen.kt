@@ -80,6 +80,9 @@ fun GridScreenScreen(
         onWidgetUnpinned = { widgetItem ->
             onTileEvent(TileEvent.OnWidgetUnpinned(widgetItem))
         },
+        onAppUninstalled = { appItem ->
+            onTileEvent(TileEvent.OnAppUninstalled(appItem))
+        },
         onDismissEditMode = {
             onTileEvent(TileEvent.OnDismissEditMode)
         },

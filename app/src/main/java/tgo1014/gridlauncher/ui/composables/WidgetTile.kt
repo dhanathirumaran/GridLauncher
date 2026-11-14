@@ -3,6 +3,7 @@ package tgo1014.gridlauncher.ui.composables
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
+import android.content.res.Configuration
 import android.os.Bundle
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -26,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -95,9 +97,18 @@ fun WidgetTile(
         ) {
             if (appWidgetInfo != null) {
                 AndroidView(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(shape)
+                        .graphicsLayer {
+                            alpha = if (tileSettings.isTransparencyEnabled) 0.88f else 1.0f
+                        },
                     factory = { context ->
-                        val hostView = appWidgetHost.createView(context, item.appWidgetId, appWidgetInfo)
+                        val config = Configuration(context.resources.configuration).apply {
+                            uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or Configuration.UI_MODE_NIGHT_YES
+                        }
+                        val widgetContext = context.createConfigurationContext(config)
+                        val hostView = appWidgetHost.createView(widgetContext, item.appWidgetId, appWidgetInfo)
                         hostView.setAppWidget(item.appWidgetId, appWidgetInfo)
                         hostView.layoutParams = FrameLayout.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,

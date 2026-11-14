@@ -8,6 +8,7 @@ class LauncherAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
 
     init {
         descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+        clipToOutline = true
     }
 
     override fun getDescendantFocusability(): Int {
