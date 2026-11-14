@@ -297,8 +297,9 @@ fun TileLayout(
                         }
                     }
 
-                    // Shortcut Remove Button - only on shortcuts
-                    if (tileItem.itemType == tgo1014.gridlauncher.ui.models.GridItemType.SHORTCUT) {
+                    // Shortcut & Smart Tile Remove Button
+                    if (tileItem.itemType == tgo1014.gridlauncher.ui.models.GridItemType.SHORTCUT ||
+                        tileItem.itemType == tgo1014.gridlauncher.ui.models.GridItemType.SMART_TILE) {
                         val alignment = if (tileItem.height == 1 && tileItem.width == 1) Alignment.TopStart else Alignment.TopEnd
                         val btnSize = if (tileItem.height == 1 && tileItem.width == 1) 28.dp else 36.dp
                         val iconSize = if (tileItem.height == 1 && tileItem.width == 1) 16.dp else 20.dp
@@ -314,7 +315,7 @@ fun TileLayout(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Remove Shortcut",
+                                contentDescription = "Remove Tile",
                                 tint = MaterialTheme.colorScheme.onErrorContainer,
                                 modifier = Modifier.size(iconSize)
                             )

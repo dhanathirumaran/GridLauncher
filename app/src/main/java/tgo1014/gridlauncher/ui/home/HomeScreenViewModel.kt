@@ -17,6 +17,17 @@ import tgo1014.gridlauncher.domain.AppsManager
 import tgo1014.gridlauncher.domain.SettingsRepository
 import tgo1014.gridlauncher.domain.models.App
 import tgo1014.gridlauncher.domain.usecases.AddToGridUseCase
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
+import android.widget.Toast
+import dagger.hilt.android.qualifiers.ApplicationContext
+import tgo1014.gridlauncher.data.smarttile.BatteryTileManager
+import tgo1014.gridlauncher.data.smarttile.CurrencyRateManager
+import tgo1014.gridlauncher.data.smarttile.FlashlightManager
+import tgo1014.gridlauncher.data.smarttile.SamsungFinderHelper
+import tgo1014.gridlauncher.data.smarttile.StepCounterManager
+import tgo1014.gridlauncher.data.smarttile.WeatherManager
 import tgo1014.gridlauncher.domain.usecases.GetAppListUseCase
 import tgo1014.gridlauncher.domain.usecases.ItemGridSizeChangeUseCase
 import tgo1014.gridlauncher.domain.usecases.MoveGridItemUseCase
@@ -26,14 +37,18 @@ import tgo1014.gridlauncher.domain.usecases.wallpaper.OnSystemThemeChangedUseCas
 import tgo1014.gridlauncher.domain.usecases.wallpaper.RemoveWallpaperUseCase
 import tgo1014.gridlauncher.domain.usecases.wallpaper.StoreWallpaperPickedUseCase
 import tgo1014.gridlauncher.domain.usecases.wallpaper.UpdateWallpaperBasedOnThemeUseCase
+import tgo1014.gridlauncher.services.LockScreenAccessibilityService
+import tgo1014.gridlauncher.ui.composables.SmartTileData
 import tgo1014.gridlauncher.ui.models.GridItem
 import tgo1014.gridlauncher.ui.models.GridItemType
 import tgo1014.gridlauncher.ui.models.SettingsEvent
+import tgo1014.gridlauncher.ui.models.SmartTileType
 import tgo1014.gridlauncher.ui.models.TileEvent
 import javax.inject.Inject
 
 @HiltViewModel
 class HomeScreenViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val getAppListUseCase: GetAppListUseCase,
     private val openNotificationShadeUseCase: OpenNotificationShadeUseCase,
     private val addToGridUseCase: AddToGridUseCase,
@@ -46,6 +61,11 @@ class HomeScreenViewModel @Inject constructor(
     private val onRemoveWallpaperUseCase: RemoveWallpaperUseCase,
     private val onSystemThemeChangedUseCase: OnSystemThemeChangedUseCase,
     private val updateWallpaperBasedOnThemeUseCase: UpdateWallpaperBasedOnThemeUseCase,
+    private val flashlightManager: FlashlightManager,
+    private val batteryTileManager: BatteryTileManager,
+    private val stepCounterManager: StepCounterManager,
+    private val currencyRateManager: CurrencyRateManager,
+    private val weatherManager: WeatherManager,
 ) : ViewModel() {
 
     private var fullAppList: List<App> = emptyList()
@@ -54,6 +74,22 @@ class HomeScreenViewModel @Inject constructor(
     val stateFlow = combine(_stateFlow, settingsRepository.tileSettingsFlow) { state, settings ->
         state.copy(tileSettings = settings)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
+
+    val smartTileData = combine(
+        flashlightManager.isFlashlightOn,
+        stepCounterManager.todaySteps,
+        batteryTileManager.state,
+        currencyRateManager.usdInrRate,
+        weatherManager.weatherState
+    ) { torch, steps, battery, currency, weather ->
+        SmartTileData(
+            flashlightOn = torch,
+            stepCount = steps,
+            batteryState = battery,
+            currencyRate = currency,
+            weatherState = weather
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SmartTileData())
 
     init {
         init()
@@ -75,16 +111,63 @@ class HomeScreenViewModel @Inject constructor(
     fun onGridItemClicked(gridItem: GridItem) = viewModelScope.launch {
         when {
             !_stateFlow.value.isEditMode -> {
-                if (gridItem.itemType == GridItemType.APP) {
-                    onOpenApp(gridItem.app)
-                } else if (gridItem.itemType == GridItemType.SHORTCUT) {
-                    delay(200)
-                    _stateFlow.update { it.copy(goToHome = true, closeSearchFab = true) }
-                    resetState()
-                    appsManager.openShortcut(gridItem)
+                when (gridItem.itemType) {
+                    GridItemType.APP -> onOpenApp(gridItem.app)
+                    GridItemType.SHORTCUT -> {
+                        delay(200)
+                        _stateFlow.update { it.copy(goToHome = true, closeSearchFab = true) }
+                        resetState()
+                        appsManager.openShortcut(gridItem)
+                    }
+                    GridItemType.SMART_TILE -> handleSmartTileClick(gridItem)
+                    else -> {}
                 }
             }
             else -> _stateFlow.update { it.copy(itemBeingEdited = gridItem) }
+        }
+    }
+
+    private fun handleSmartTileClick(gridItem: GridItem) {
+        when (gridItem.smartTileType) {
+            SmartTileType.FINDER -> SamsungFinderHelper.launch(context)
+            SmartTileType.FLASHLIGHT -> flashlightManager.toggle()
+            SmartTileType.LOCK_SCREEN -> {
+                val locked = LockScreenAccessibilityService.lockScreen()
+                if (!locked) {
+                    runCatching {
+                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                        Toast.makeText(context, "Please enable GridLauncher Accessibility Service to lock screen", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+            SmartTileType.STEP_COUNTER -> {
+                stepCounterManager.refresh()
+                val healthIntent = context.packageManager.getLaunchIntentForPackage("com.sec.android.app.shealth")
+                    ?: context.packageManager.getLaunchIntentForPackage("com.google.android.apps.fitness")
+                if (healthIntent != null) {
+                    healthIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(healthIntent)
+                }
+            }
+            SmartTileType.BATTERY -> {
+                batteryTileManager.updateBattery()
+                runCatching {
+                    val intent = Intent(Intent.ACTION_POWER_USAGE_SUMMARY).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                }
+            }
+            SmartTileType.CURRENCY -> {
+                viewModelScope.launch { currencyRateManager.fetchRateIfNeeded(force = true) }
+            }
+            SmartTileType.WEATHER -> {
+                viewModelScope.launch { weatherManager.fetchWeather() }
+            }
+            null -> {}
         }
     }
 

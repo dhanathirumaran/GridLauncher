@@ -76,4 +76,19 @@ class GridPackerTest {
         assertEquals(6, item1.x)
         assertEquals(0, item1.y)
     }
+
+    @Test
+    fun `smart tiles pack alongside app tiles cleanly`() {
+        val appTile = item(1, 2, 2, x = 0, y = 0)
+        val smartTile = GridItem(
+            id = 2,
+            itemType = tgo1014.gridlauncher.ui.models.GridItemType.SMART_TILE,
+            smartTileType = tgo1014.gridlauncher.ui.models.SmartTileType.FLASHLIGHT,
+            width = 2,
+            height = 2
+        )
+        val packed = GridPacker.packTiles(listOf(appTile, smartTile), columns = 8)
+        assertEquals(2, packed[1].x)
+        assertEquals(0, packed[1].y)
+    }
 }

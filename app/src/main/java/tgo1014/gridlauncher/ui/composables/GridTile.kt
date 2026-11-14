@@ -49,6 +49,24 @@ fun GridTile(
     onItemClicked: (item: GridItem) -> Unit = {},
     onItemLongClicked: (item: GridItem) -> Unit = {},
 ) {
+    if (item.itemType == tgo1014.gridlauncher.ui.models.GridItemType.SMART_TILE) {
+        val smartData = LocalSmartTileData.current
+        SmartTile(
+            item = item,
+            modifier = modifier,
+            tileSettings = tileSettings,
+            isEditMode = isEditMode,
+            flashlightOn = smartData.flashlightOn,
+            stepCount = smartData.stepCount,
+            batteryState = smartData.batteryState,
+            currencyRate = smartData.currencyRate,
+            weatherState = smartData.weatherState,
+            onItemClicked = onItemClicked,
+            onItemLongClicked = onItemLongClicked
+        )
+        return
+    }
+
     val isShortcut = item.itemType == tgo1014.gridlauncher.ui.models.GridItemType.SHORTCUT
     val itemName = if (isShortcut) item.shortcutLabel.orEmpty() else item.app.name
     val iconModel = if (isShortcut) item.shortcutIconPath else item.app.icon.iconFile
@@ -102,13 +120,11 @@ fun GridTile(
             }
         }
         if (item.width >= 2 && item.height == 1) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.fillMaxSize()
             ) {
-                val iconSizeModifier = Modifier.size(24.dp)
+                val iconSizeModifier = Modifier.size(28.dp)
                 if (isPreview) {
                     Image(
                         imageVector = Icons.Default.Settings,
@@ -120,17 +136,6 @@ fun GridTile(
                         model = iconModel,
                         contentDescription = null,
                         modifier = iconSizeModifier,
-                    )
-                }
-                if (!tileSettings.isAppLabelsHidden) {
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = itemName,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = textColor,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.weight(1f)
                     )
                 }
             }

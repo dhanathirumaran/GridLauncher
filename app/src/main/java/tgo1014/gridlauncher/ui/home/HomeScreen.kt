@@ -21,20 +21,26 @@ import tgo1014.gridlauncher.ui.models.SettingsEvent
 import tgo1014.gridlauncher.ui.models.TileEvent
 import tgo1014.gridlauncher.ui.theme.AsyncImage
 
+import androidx.compose.runtime.CompositionLocalProvider
+import tgo1014.gridlauncher.ui.composables.LocalSmartTileData
+
 @Composable
 fun HomeScreen(
     viewModel: HomeScreenViewModel = hiltViewModel(),
 ) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
-    HomeScreen(
-        state = state,
-        onHome = viewModel::onSwitchedToHome,
-        onOpenNotificationShade = viewModel::openNotificationShade,
-        onItemClicked = viewModel::onGridItemClicked,
-        onItemLongClicked = viewModel::onGridItemLongClicked,
-        onSettingsEvent = viewModel::onSettingsEvent,
-        onTileEvent = viewModel::onTileEvent,
-    )
+    val smartTileData by viewModel.smartTileData.collectAsStateWithLifecycle()
+    CompositionLocalProvider(LocalSmartTileData provides smartTileData) {
+        HomeScreen(
+            state = state,
+            onHome = viewModel::onSwitchedToHome,
+            onOpenNotificationShade = viewModel::openNotificationShade,
+            onItemClicked = viewModel::onGridItemClicked,
+            onItemLongClicked = viewModel::onGridItemLongClicked,
+            onSettingsEvent = viewModel::onSettingsEvent,
+            onTileEvent = viewModel::onTileEvent,
+        )
+    }
 }
 
 @Composable

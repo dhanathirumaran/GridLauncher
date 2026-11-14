@@ -7,7 +7,19 @@ import tgo1014.gridlauncher.domain.models.App
 enum class GridItemType {
     APP,
     WIDGET,
-    SHORTCUT
+    SHORTCUT,
+    SMART_TILE
+}
+
+@Serializable
+enum class SmartTileType {
+    FINDER,
+    FLASHLIGHT,
+    LOCK_SCREEN,
+    STEP_COUNTER,
+    BATTERY,
+    CURRENCY,
+    WEATHER
 }
 
 @Serializable
@@ -19,6 +31,7 @@ data class GridItem(
     val x: Int = 0,
     val y: Int = 0,
     val itemType: GridItemType = GridItemType.APP,
+    val smartTileType: SmartTileType? = null,
     val appWidgetId: Int = -1,
     val widgetPackage: String? = null,
     val widgetProvider: String? = null,
