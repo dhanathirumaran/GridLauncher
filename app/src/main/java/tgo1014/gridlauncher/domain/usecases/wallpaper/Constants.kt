@@ -19,6 +19,6 @@ val AppHazeStyle: HazeStyle
     @Composable get() = HazeStyle(
         backgroundColor = MaterialTheme.colorScheme.primary,
         tint = HazeTint.Color(MaterialTheme.colorScheme.primaryContainer.copy(0.3f)),
-        blurRadius = 10.dp,
-        noiseFactor = 0.02f
+        blurRadius = 8.dp,
+        noiseFactor = 0f
     )

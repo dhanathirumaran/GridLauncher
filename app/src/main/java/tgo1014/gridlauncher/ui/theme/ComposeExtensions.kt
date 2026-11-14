@@ -128,7 +128,10 @@ fun Modifier.flipRandomly() = composed {
             )
         )
     }
-    this.graphicsLayer(rotationX = animatedFloat.value, cameraDistance = 300f)
+    this.graphicsLayer {
+        rotationX = animatedFloat.value
+        cameraDistance = 300f
+    }
 }
 
 fun Modifier.tileEditMode(isEditMode: Boolean) = composed {

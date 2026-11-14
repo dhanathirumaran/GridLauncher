@@ -1,5 +1,6 @@
 package tgo1014.gridlauncher.ui.composables
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,11 +16,11 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.Canvas
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
@@ -28,9 +29,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,9 +42,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -54,7 +54,9 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import eu.wewox.lazytable.LazyTable
 import eu.wewox.lazytable.LazyTableItem
 import eu.wewox.lazytable.LazyTableScrollDirection
+import eu.wewox.lazytable.LazyTableState
 import eu.wewox.lazytable.lazyTableDimensions
+import eu.wewox.lazytable.rememberSaveableLazyTableState
 import kotlin.math.roundToInt
 import tgo1014.gridlauncher.app.Constants.gridColumns
 import tgo1014.gridlauncher.domain.models.App
@@ -95,29 +97,54 @@ fun TileLayout(
     val gridItemSize = (this.maxWidth - (padding * 2)) / columns
     val density = LocalDensity.current
     val gridItemSizePx = with(density) { gridItemSize.toPx() }
-    var firstItemPosition: Float? by remember { mutableStateOf(null) }
-    LaunchedIfTrueEffect(grid.isEmpty()) {
-        isOnTop(true)
+
+    val tableState: LazyTableState = rememberSaveableLazyTableState()
+    val isScrolledToTop by remember {
+        derivedStateOf {
+            (tableState.minaBoxState.translate?.y ?: 0f) <= 0.5f
+        }
     }
+    val currentIsOnTop by rememberUpdatedState(isOnTop)
+    LaunchedEffect(isScrolledToTop) {
+        currentIsOnTop(isScrolledToTop)
+    }
+
     val systemBars = WindowInsets.systemBars.asPaddingValues()
     var base by remember { mutableStateOf(PaddingValues()) }
     LaunchedEffect(itemBeingEdited) {
         val extraBottom = if (itemBeingEdited != null) 96.dp else 0.dp
         base = systemBars + PaddingValues(padding) + contentPadding + PaddingValues(bottom = extraBottom)
     }
-    val hazeChildModifier = Modifier
-        .clip(RoundedCornerShape(tileSettings.cornerRadius))
-        .hazeChild(
-            state = hazeState,
-            style = AppHazeStyle,
-        )
+
+    // Only apply blur pipeline when transparency/wallpaper is active; otherwise use lightweight clipping
+    val hazeChildModifier = if (tileSettings.isTransparencyEnabled) {
+        Modifier
+            .clip(RoundedCornerShape(tileSettings.cornerRadius))
+            .hazeChild(
+                state = hazeState,
+                style = AppHazeStyle,
+            )
+    } else {
+        Modifier.clip(RoundedCornerShape(tileSettings.cornerRadius))
+    }
+
+    // Disable vertical scrolling on the table when in Edit Mode so drag/resize gestures have zero friction
+    val currentScrollDirection = if (itemBeingEdited != null) {
+        LazyTableScrollDirection.HORIZONTAL
+    } else {
+        LazyTableScrollDirection.VERTICAL
+    }
+
     LazyTable(
-        scrollDirection = LazyTableScrollDirection.VERTICAL,
+        state = tableState,
+        scrollDirection = currentScrollDirection,
         contentPadding = base,
         dimensions = lazyTableDimensions({ gridItemSize }, { gridItemSize }),
     ) {
         items(
             items = grid,
+            key = { it.id },
+            contentType = { it.itemType },
             layoutInfo = { tile ->
                 LazyTableItem(
                     column = tile.x,
@@ -146,17 +173,27 @@ fun TileLayout(
 
             val tileShape = RoundedCornerShape(tileSettings.cornerRadius)
 
+            // When resizing, dynamically size the container so the user visually sees the live resize
+            val containerSizeModifier = if (isResizing) {
+                Modifier.requiredSize(
+                    width = gridItemSize * liveWidth,
+                    height = gridItemSize * liveHeight
+                )
+            } else {
+                Modifier.fillMaxSize()
+            }
+
             Box(
                 modifier = Modifier
                     .padding(2.dp)
-                    .fillMaxSize()
+                    .then(containerSizeModifier)
                     .modifyIf(isBeingEdited) {
                         graphicsLayer {
                             translationX = dragOffset.x
                             translationY = dragOffset.y
                             shadowElevation = if (isDragging) 24f else 4f
                         }
-                        .zIndex(if (isDragging || isResizing) 30f else 10f)
+                        .zIndex(if (isDragging || isResizing) 50f else 10f)
                     }
             ) {
                 GridTile(
@@ -175,20 +212,11 @@ fun TileLayout(
                     onItemLongClicked = onItemLongClicked,
                     modifier = Modifier
                         .fillMaxSize()
-                        .modifyIf(tileItem == grid.firstOrNull()) {
-                            onGloballyPositioned { coord ->
-                                val y = coord.positionInWindow().y
-                                if (firstItemPosition == null) {
-                                    firstItemPosition = y
-                                }
-                                isOnTop(firstItemPosition == y)
-                            }
-                        }
                         .then(hazeChildModifier)
                 )
 
                 if (isBeingEdited) {
-                    // Active Edit Mode Overlay
+                    // Active Drag Overlay Body (covers the entire tile to capture touch down instantly)
                     Box(
                         modifier = Modifier
                             .matchParentSize()
@@ -226,7 +254,7 @@ fun TileLayout(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .padding(4.dp)
-                                .size(28.dp)
+                                .size(32.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.errorContainer)
                                 .clickable { onWidgetUnpinned(tileItem) },
@@ -236,17 +264,17 @@ fun TileLayout(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Unpin Widget",
                                 tint = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
 
-                    // Corner Resize Handle (Bottom-Right)
+                    // Corner Resize Handle (Bottom-Right) - generous touch target
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(4.dp)
-                            .size(32.dp)
+                            .padding(2.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.primary)
                             .pointerInput(tileItem.id) {
@@ -275,7 +303,7 @@ fun TileLayout(
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Canvas(modifier = Modifier.size(14.dp)) {
+                        Canvas(modifier = Modifier.size(16.dp)) {
                             val stroke = 2.dp.toPx()
                             val c = Color.White
                             drawLine(c, Offset(size.width * 0.75f, size.height), Offset(size.width, size.height * 0.75f), stroke)
@@ -284,12 +312,12 @@ fun TileLayout(
                         }
                     }
 
-                    // Live Pill Badge
+                    // Live Pill Indicator Badge
                     if (isDragging) {
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
-                            shadowElevation = 4.dp,
+                            shadowElevation = 6.dp,
                             modifier = Modifier
                                 .align(Alignment.Center)
                                 .padding(4.dp)
@@ -306,7 +334,7 @@ fun TileLayout(
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
-                            shadowElevation = 4.dp,
+                            shadowElevation = 6.dp,
                             modifier = Modifier
                                 .align(Alignment.Center)
                                 .padding(4.dp)
