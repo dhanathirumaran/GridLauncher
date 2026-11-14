@@ -32,7 +32,7 @@ class AppsManagerImpl @Inject constructor(
     override val homeGridFlow = appsManagerDataSource.homeGridFlow
 
     init {
-        updateAppsList()
+        scope.launch { updateAppsList() }
     }
 
     override fun openApp(app: App) {
@@ -41,10 +41,8 @@ class AppsManagerImpl @Inject constructor(
 
     override suspend fun setGrid(grid: List<GridItem>) = appsManagerDataSource.setGrid(grid)
 
-    override fun updateAppsList() {
-        scope.launch {
-            appsManagerDataSource.setAppList(fetchAllApps())
-        }
+    override suspend fun updateAppsList() {
+        appsManagerDataSource.setAppList(fetchAllApps())
     }
 
     override fun uninstallApp(app: App) {

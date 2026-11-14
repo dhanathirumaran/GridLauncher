@@ -301,12 +301,12 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (info.targetCellWidth > 0 && info.targetCellHeight > 0) {
                 return Pair(
-                    info.targetCellWidth.coerceIn(2, Constants.gridColumns),
+                    info.targetCellWidth.coerceIn(1, Constants.gridColumns),
                     info.targetCellHeight.coerceAtLeast(1)
                 )
             }
         }
-        val spanX = ((info.minWidth + 30) / 70).coerceIn(2, Constants.gridColumns)
+        val spanX = ((info.minWidth + 30) / 70).coerceIn(1, Constants.gridColumns)
         val spanY = ((info.minHeight + 30) / 70).coerceIn(1, 4)
         return Pair(spanX, spanY)
     }

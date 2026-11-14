@@ -6,14 +6,12 @@ import android.content.Context
 import android.graphics.drawable.Drawable
 import android.os.Build
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -62,7 +60,6 @@ data class WidgetPickerItem(
     val spanX: Int,
     val spanY: Int,
     val icon: Drawable?,
-    val preview: Drawable?,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,7 +70,7 @@ fun WidgetPickerBottomSheet(
     onWidgetSelected: (AppWidgetProviderInfo) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val context = LocalContext.current
+    val context = LocalContext.current.applicationContext
     var widgetItems by remember { mutableStateOf<List<WidgetPickerItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -177,7 +174,7 @@ fun WidgetPickerBottomSheet(
                                 .weight(1f)
                         ) {
                             grouped.forEach { (appName, items) ->
-                                item(key = "header_$appName") {
+                                item(key = "header_$appName", contentType = "header") {
                                     Text(
                                         text = appName,
                                         style = MaterialTheme.typography.titleSmall,
@@ -185,7 +182,11 @@ fun WidgetPickerBottomSheet(
                                         modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
                                     )
                                 }
-                                items(items, key = { "${it.info.provider.flattenToString()}_${it.spanX}x${it.spanY}" }) { widget ->
+                                items(
+                                    items = items,
+                                    key = { "${it.info.provider.flattenToString()}_${it.widgetLabel}_${it.spanX}x${it.spanY}" },
+                                    contentType = { "widget_item" }
+                                ) { widget ->
                                     WidgetRowItem(
                                         item = widget,
                                         onClick = { onWidgetSelected(widget.info) }
@@ -217,10 +218,10 @@ private fun WidgetRowItem(
                 .fillMaxWidth()
                 .padding(12.dp)
         ) {
-            val previewOrIcon = item.preview ?: item.icon
-            if (previewOrIcon != null) {
+            val icon = item.icon
+            if (icon != null) {
                 AsyncImage(
-                    model = previewOrIcon,
+                    model = icon,
                     contentDescription = null,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
@@ -282,7 +283,6 @@ private suspend fun loadInstalledWidgets(context: Context): List<WidgetPickerIte
                 val widgetLabel = info.loadLabel(pm).takeIf { !it.isNullOrBlank() } ?: appName
                 val (spanX, spanY) = calculateSpan(info)
                 val icon = runCatching { info.loadIcon(context, 0) ?: appInfo?.loadIcon(pm) }.getOrNull()
-                val preview = runCatching { info.loadPreviewImage(context, 0) }.getOrNull()
 
                 WidgetPickerItem(
                     info = info,
@@ -291,7 +291,6 @@ private suspend fun loadInstalledWidgets(context: Context): List<WidgetPickerIte
                     spanX = spanX,
                     spanY = spanY,
                     icon = icon,
-                    preview = preview
                 )
             } catch (e: Exception) {
                 null
@@ -303,12 +302,12 @@ private fun calculateSpan(info: AppWidgetProviderInfo): Pair<Int, Int> {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         if (info.targetCellWidth > 0 && info.targetCellHeight > 0) {
             return Pair(
-                info.targetCellWidth.coerceIn(2, Constants.gridColumns),
+                info.targetCellWidth.coerceIn(1, Constants.gridColumns),
                 info.targetCellHeight.coerceAtLeast(1)
             )
         }
     }
-    val spanX = ((info.minWidth + 30) / 70).coerceIn(2, Constants.gridColumns)
+    val spanX = ((info.minWidth + 30) / 70).coerceIn(1, Constants.gridColumns)
     val spanY = ((info.minHeight + 30) / 70).coerceIn(1, 4)
     return Pair(spanX, spanY)
 }

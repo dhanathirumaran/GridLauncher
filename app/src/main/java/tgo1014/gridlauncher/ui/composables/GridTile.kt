@@ -86,9 +86,13 @@ fun GridTile(
                 modifier = Modifier.fillMaxSize()
             )
         }
-        val onContainer = MaterialTheme.colorScheme.onPrimaryContainer
-        val contentColor = contentColorFor(MaterialTheme.colorScheme.primaryContainer)
-        val textColor = remember {
+        val textColor = remember(
+            tileSettings.isTransparencyEnabled,
+            app.icon.bgFile,
+            app.icon.isLightBackground,
+            onContainer,
+            contentColor
+        ) {
             when {
                 tileSettings.isTransparencyEnabled -> contentColor
                 app.icon.bgFile == null -> onContainer

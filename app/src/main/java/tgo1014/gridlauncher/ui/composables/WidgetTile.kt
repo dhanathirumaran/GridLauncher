@@ -10,7 +10,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,11 +18,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import tgo1014.gridlauncher.data.widget.LauncherAppWidgetHost
@@ -53,29 +57,34 @@ fun WidgetTile(
         } else null
     }
 
-    BoxWithConstraints(
+    val density = LocalDensity.current
+    var widthDp by remember { mutableIntStateOf(0) }
+    var heightDp by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(widthDp, heightDp, item.appWidgetId) {
+        if (item.appWidgetId != -1 && widthDp > 0 && heightDp > 0) {
+            val options = Bundle().apply {
+                putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, widthDp)
+                putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, widthDp)
+                putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, heightDp)
+                putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, heightDp)
+            }
+            runCatching {
+                appWidgetManager.updateAppWidgetOptions(item.appWidgetId, options)
+            }
+        }
+    }
+
+    Box(
         modifier = Modifier
             .tileEditMode(isEditMode)
             .clip(shape)
+            .onSizeChanged { size ->
+                widthDp = with(density) { size.width.toDp().value.toInt() }
+                heightDp = with(density) { size.height.toDp().value.toInt() }
+            }
             .then(modifier)
     ) {
-        val widthDp = maxWidth.value.toInt()
-        val heightDp = maxHeight.value.toInt()
-
-        LaunchedEffect(widthDp, heightDp, item.appWidgetId) {
-            if (item.appWidgetId != -1 && widthDp > 0 && heightDp > 0) {
-                val options = Bundle().apply {
-                    putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, widthDp)
-                    putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, widthDp)
-                    putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, heightDp)
-                    putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, heightDp)
-                }
-                runCatching {
-                    appWidgetManager.updateAppWidgetOptions(item.appWidgetId, options)
-                }
-            }
-        }
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -101,6 +110,9 @@ fun WidgetTile(
                         hostView
                     },
                     update = { hostView ->
+                        if (hostView.appWidgetId != item.appWidgetId) {
+                            hostView.setAppWidget(item.appWidgetId, appWidgetInfo)
+                        }
                         hostView.setOnLongClickListener {
                             onItemLongClicked(item)
                             true

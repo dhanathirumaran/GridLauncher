@@ -20,7 +20,7 @@ class FakeAppsManager : AppsManager {
 
     }
 
-    override fun updateAppsList() {
+    override suspend fun updateAppsList() {
     }
 
     override fun uninstallApp(app: App) {
