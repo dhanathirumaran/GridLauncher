@@ -1,5 +1,6 @@
 package tgo1014.gridlauncher.ui.home
 
+import android.appwidget.AppWidgetProviderInfo
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -24,7 +25,7 @@ import tgo1014.gridlauncher.ui.theme.AsyncImage
 @Composable
 fun HomeScreen(
     viewModel: HomeScreenViewModel = hiltViewModel(),
-    onAddWidgetClicked: () -> Unit = {},
+    onWidgetSelected: (AppWidgetProviderInfo) -> Unit = {},
 ) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     HomeScreen(
@@ -35,7 +36,12 @@ fun HomeScreen(
         onItemLongClicked = viewModel::onGridItemLongClicked,
         onSettingsEvent = viewModel::onSettingsEvent,
         onTileEvent = viewModel::onTileEvent,
-        onAddWidgetClicked = onAddWidgetClicked,
+        onAddWidgetClicked = viewModel::showWidgetPicker,
+        onDismissWidgetPicker = viewModel::dismissWidgetPicker,
+        onWidgetSelected = { info ->
+            viewModel.dismissWidgetPicker()
+            onWidgetSelected(info)
+        },
     )
 }
 
@@ -49,6 +55,8 @@ private fun HomeScreen(
     onSettingsEvent: (SettingsEvent) -> Unit = {},
     onTileEvent: (TileEvent) -> Unit = {},
     onAddWidgetClicked: () -> Unit = {},
+    onDismissWidgetPicker: () -> Unit = {},
+    onWidgetSelected: (AppWidgetProviderInfo) -> Unit = {},
 ) = Box(modifier = Modifier.fillMaxSize()) {
     LaunchedIfTrueEffect(state.goToHome) {
         onHome()
@@ -77,5 +85,7 @@ private fun HomeScreen(
         onSettingsEvent = onSettingsEvent,
         onTileEvent = onTileEvent,
         onAddWidgetClicked = onAddWidgetClicked,
+        onDismissWidgetPicker = onDismissWidgetPicker,
+        onWidgetSelected = onWidgetSelected,
     )
 }

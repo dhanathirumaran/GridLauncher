@@ -101,6 +101,14 @@ class HomeScreenViewModel @Inject constructor(
         )
     }
 
+    fun showWidgetPicker() {
+        _stateFlow.update { it.copy(isWidgetPickerShowing = true) }
+    }
+
+    fun dismissWidgetPicker() {
+        _stateFlow.update { it.copy(isWidgetPickerShowing = false) }
+    }
+
     fun onGridItemLongClicked(gridItem: GridItem) {
         _stateFlow.update { it.copy(itemBeingEdited = gridItem) }
     }

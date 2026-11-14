@@ -32,10 +32,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
 import tgo1014.gridlauncher.domain.models.App
+import android.appwidget.AppWidgetProviderInfo
 import tgo1014.gridlauncher.domain.models.TileSettings
 import tgo1014.gridlauncher.ui.composables.TileLayout
 import tgo1014.gridlauncher.ui.composables.sheets.SettingsBottomSheet
 import tgo1014.gridlauncher.ui.composables.sheets.TileSettingsBottomSheet
+import tgo1014.gridlauncher.ui.composables.sheets.WidgetPickerBottomSheet
 import tgo1014.gridlauncher.ui.models.GridItem
 import tgo1014.gridlauncher.ui.models.SettingsEvent
 import tgo1014.gridlauncher.ui.models.TileEvent
@@ -53,6 +55,8 @@ fun GridScreenScreen(
     onTileEvent: (TileEvent) -> Unit = {},
     onSettingsEvent: (SettingsEvent) -> Unit = {},
     onAddWidgetClicked: () -> Unit = {},
+    onDismissWidgetPicker: () -> Unit = {},
+    onWidgetSelected: (AppWidgetProviderInfo) -> Unit = {},
 ) {
     var isOnTop by remember { mutableStateOf(true) }
     TileLayout(
@@ -99,6 +103,11 @@ fun GridScreenScreen(
         tileSettings = state.tileSettings,
         isShowing = state.isSettingsSheetShowing,
         onSettingsEvent = onSettingsEvent
+    )
+    WidgetPickerBottomSheet(
+        isShowing = state.isWidgetPickerShowing,
+        onDismiss = onDismissWidgetPicker,
+        onWidgetSelected = onWidgetSelected,
     )
 }
 

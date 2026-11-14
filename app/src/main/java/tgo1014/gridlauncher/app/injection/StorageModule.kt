@@ -53,7 +53,12 @@ abstract class StorageModule {
 
         @Provides
         @Singleton
-        fun providesJson(): Json = Json
+        fun providesJson(): Json = Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+            coerceInputValues = true
+            isLenient = true
+        }
 
         @Provides
         @Singleton

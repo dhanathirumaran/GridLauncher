@@ -76,7 +76,7 @@ class MainActivity : ComponentActivity() {
                 GridLauncherTheme(mainColor) {
                     HomeScreen(
                         viewModel = homeScreenViewModel,
-                        onAddWidgetClicked = { startWidgetPick() }
+                        onWidgetSelected = { info -> handleWidgetSelected(info) }
                     )
                 }
             }
@@ -190,54 +190,82 @@ class MainActivity : ComponentActivity() {
      */
     private val darkScrim = android.graphics.Color.argb(0x80, 0x1b, 0x1b, 0x1b)
 
-    private fun startWidgetPick() {
+    private var pendingWidgetInfo: AppWidgetProviderInfo? = null
+    private var pendingWidgetId: Int = -1
+
+    private fun handleWidgetSelected(info: AppWidgetProviderInfo) {
         try {
             val appWidgetId = appWidgetHost.allocateAppWidgetId()
-            val pickIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_PICK).apply {
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+            pendingWidgetId = appWidgetId
+            pendingWidgetInfo = info
+
+            val canBind = appWidgetManager.bindAppWidgetIdIfAllowed(appWidgetId, info.provider)
+            if (canBind) {
+                checkConfigureAndAddWidget(appWidgetId, info)
+            } else {
+                val bindIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND).apply {
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, info.provider)
+                }
+                startActivityForResult(bindIntent, REQUEST_BIND_APPWIDGET)
             }
-            startActivityForResult(pickIntent, REQUEST_PICK_APPWIDGET)
         } catch (e: Exception) {
             e.printStackTrace()
+            if (pendingWidgetId != -1) {
+                appWidgetHost.deleteAppWidgetId(pendingWidgetId)
+                pendingWidgetId = -1
+                pendingWidgetInfo = null
+            }
         }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         when (requestCode) {
-            REQUEST_PICK_APPWIDGET -> {
-                val appWidgetId = data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1) ?: -1
+            REQUEST_BIND_APPWIDGET -> {
+                val appWidgetId = data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, pendingWidgetId)
+                    ?.takeIf { it != -1 } ?: pendingWidgetId
                 if (resultCode == RESULT_OK && appWidgetId != -1) {
-                    configureOrAddWidget(appWidgetId)
+                    val info = pendingWidgetInfo ?: appWidgetManager.getAppWidgetInfo(appWidgetId)
+                    if (info != null) {
+                        checkConfigureAndAddWidget(appWidgetId, info)
+                    } else {
+                        appWidgetHost.deleteAppWidgetId(appWidgetId)
+                        pendingWidgetId = -1
+                        pendingWidgetInfo = null
+                    }
                 } else {
                     if (appWidgetId != -1) {
                         appWidgetHost.deleteAppWidgetId(appWidgetId)
                     }
+                    pendingWidgetId = -1
+                    pendingWidgetInfo = null
                 }
             }
             REQUEST_CREATE_APPWIDGET -> {
-                val appWidgetId = data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1) ?: -1
+                val appWidgetId = data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, pendingWidgetId)
+                    ?.takeIf { it != -1 } ?: pendingWidgetId
                 if (resultCode == RESULT_OK && appWidgetId != -1) {
-                    val appWidgetInfo = appWidgetManager.getAppWidgetInfo(appWidgetId)
-                    if (appWidgetInfo != null) {
-                        addWidgetToGrid(appWidgetId, appWidgetInfo)
+                    val info = pendingWidgetInfo ?: appWidgetManager.getAppWidgetInfo(appWidgetId)
+                    if (info != null) {
+                        addWidgetToGrid(appWidgetId, info)
                     }
                 } else {
                     if (appWidgetId != -1) {
                         appWidgetHost.deleteAppWidgetId(appWidgetId)
                     }
                 }
+                pendingWidgetId = -1
+                pendingWidgetInfo = null
             }
         }
     }
 
-    private fun configureOrAddWidget(appWidgetId: Int) {
-        val appWidgetInfo = appWidgetManager.getAppWidgetInfo(appWidgetId) ?: run {
-            appWidgetHost.deleteAppWidgetId(appWidgetId)
-            return
-        }
+    private fun checkConfigureAndAddWidget(appWidgetId: Int, appWidgetInfo: AppWidgetProviderInfo) {
         if (appWidgetInfo.configure != null) {
             try {
+                pendingWidgetId = appWidgetId
+                pendingWidgetInfo = appWidgetInfo
                 appWidgetHost.startAppWidgetConfigureActivityForResult(
                     this,
                     appWidgetId,
@@ -248,9 +276,13 @@ class MainActivity : ComponentActivity() {
             } catch (e: Exception) {
                 e.printStackTrace()
                 addWidgetToGrid(appWidgetId, appWidgetInfo)
+                pendingWidgetId = -1
+                pendingWidgetInfo = null
             }
         } else {
             addWidgetToGrid(appWidgetId, appWidgetInfo)
+            pendingWidgetId = -1
+            pendingWidgetInfo = null
         }
     }
 
@@ -280,8 +312,8 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
-        private const val REQUEST_PICK_APPWIDGET = 2001
         private const val REQUEST_CREATE_APPWIDGET = 2002
+        private const val REQUEST_BIND_APPWIDGET = 2003
     }
 
 }
