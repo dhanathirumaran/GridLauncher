@@ -32,10 +32,10 @@ jobs:
       run: chmod +x gradlew
 
     - name: Run gradle tests
-      run: ./gradlew test
+      run: ./gradlew test -PversionCode=${{ github.run_number }} -PversionName=1.0.0-build-${{ github.run_number }}
 
     - name: Build APK (Debug and Release)
-      run: ./gradlew assembleDebug assembleRelease
+      run: ./gradlew assembleDebug assembleRelease -PversionCode=${{ github.run_number }} -PversionName=1.0.0-build-${{ github.run_number }}
 
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4

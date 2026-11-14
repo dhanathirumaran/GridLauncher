@@ -13,12 +13,18 @@ android {
     namespace = "tgo1014.gridlauncher"
     compileSdk = 35
 
+    val buildNumber = providers.gradleProperty("versionCode")
+        .map { it.toIntOrNull() ?: 1 }
+        .getOrElse(1)
+    val appVersionName = providers.gradleProperty("versionName")
+        .getOrElse("1.0.0")
+
     defaultConfig {
         applicationId = "tgo1014.gridlauncher"
         minSdk = 21
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = buildNumber
+        versionName = appVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
     }
@@ -33,6 +39,7 @@ android {
     buildTypes {
         debug {
             // isMinifyEnabled = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
