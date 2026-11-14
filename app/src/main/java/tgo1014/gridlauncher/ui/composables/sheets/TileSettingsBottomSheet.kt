@@ -71,6 +71,12 @@ private fun TileSettingsContent(
                 Text("1x1")
             }
             Button(
+                onClick = { onTileEvent(TileEvent.OnSizeChange(TileSize.WideSmall)) },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("2x1")
+            }
+            Button(
                 onClick = { onTileEvent(TileEvent.OnSizeChange(TileSize.Medium)) },
                 modifier = Modifier.weight(1f)
             ) {
@@ -81,12 +87,6 @@ private fun TileSettingsContent(
                 modifier = Modifier.weight(1f)
             ) {
                 Text("4x2")
-            }
-            Button(
-                onClick = { onTileEvent(TileEvent.OnSizeChange(TileSize.Wide)) },
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("6x2")
             }
             Button(
                 onClick = { onTileEvent(TileEvent.OnSizeChange(TileSize.ExtraLarge)) },

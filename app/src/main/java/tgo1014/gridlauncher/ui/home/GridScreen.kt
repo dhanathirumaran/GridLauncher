@@ -49,7 +49,6 @@ fun GridScreenScreen(
     hazeState: HazeState = remember { HazeState() },
     onItemClicked: (item: GridItem) -> Unit = {},
     onItemLongClicked: (item: GridItem) -> Unit = {},
-    onFooterClicked: () -> Unit = {},
     onOpenNotificationShade: () -> Unit = {},
     onTileEvent: (TileEvent) -> Unit = {},
     onSettingsEvent: (SettingsEvent) -> Unit = {},
@@ -79,11 +78,6 @@ fun GridScreenScreen(
                     tileSettings = state.tileSettings,
                     onClicked = { onSettingsEvent(SettingsEvent.OnSettingsIconClicked) }
                 )
-                Footer(
-                    modifier = modifier,
-                    onFooterClicked = onFooterClicked,
-                    tileSettings = state.tileSettings
-                )
             }
         },
         onItemLongClicked = onItemLongClicked,
@@ -108,36 +102,6 @@ fun GridScreenScreen(
     )
 }
 
-@Composable
-@Preview
-private fun Footer(
-    modifier: Modifier = Modifier,
-    onFooterClicked: () -> Unit = {},
-    tileSettings: TileSettings = TileSettings()
-) {
-    val bgColor = MaterialTheme.colorScheme.primaryContainer
-    val _modifier = Modifier
-        .conditional(
-            condition = tileSettings.isTransparencyEnabled,
-            ifTrue = { then(modifier) },
-            ifFalse = { clip(RoundedCornerShape(tileSettings.cornerRadius)).background(bgColor) }
-        )
-        .clickable { onFooterClicked() }
-        .padding(start = 10.dp, top = 8.dp, bottom = 8.dp, end = 3.dp)
-    Row(
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = _modifier
-    ) {
-        val contentColor = contentColorFor(bgColor)
-        Text(text = "All apps", color = contentColor)
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = contentColor,
-        )
-    }
-}
 
 @Composable
 @Preview

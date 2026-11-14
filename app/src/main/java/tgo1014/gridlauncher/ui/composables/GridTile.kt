@@ -4,10 +4,13 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -93,33 +96,68 @@ fun GridTile(
                 else -> Color.White
             }
         }
-        Box(modifier = Modifier.fillMaxSize()) {
-            val iconModifier = Modifier.align(Alignment.Center)
-            if (isPreview) {
-                Image(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = null,
-                    modifier = iconModifier,
-                )
-            } else {
-                AsyncImage(
-                    model = item.app.icon.iconFile,
-                    contentDescription = null,
-                    modifier = iconModifier,
-                )
+        if (item.width >= 2 && item.height == 1) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                val iconSizeModifier = Modifier.size(24.dp)
+                if (isPreview) {
+                    Image(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = null,
+                        modifier = iconSizeModifier,
+                    )
+                } else {
+                    AsyncImage(
+                        model = item.app.icon.iconFile,
+                        contentDescription = null,
+                        modifier = iconSizeModifier,
+                    )
+                }
+                if (!tileSettings.isAppLabelsHidden) {
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = item.app.name,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = textColor,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
-            if (item.width > 1 && item.height > 1 && !tileSettings.isAppLabelsHidden) {
-                Text(
-                    text = item.app.name,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = textColor,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .fillMaxWidth()
-                        .padding(8.dp)
-                        .padding(horizontal = (tileSettings.cornerRadius * 0.5).dp),
-                )
+        } else {
+            Box(modifier = Modifier.fillMaxSize()) {
+                val iconModifier = Modifier.align(Alignment.Center)
+                if (isPreview) {
+                    Image(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = null,
+                        modifier = iconModifier,
+                    )
+                } else {
+                    AsyncImage(
+                        model = item.app.icon.iconFile,
+                        contentDescription = null,
+                        modifier = iconModifier,
+                    )
+                }
+                if (item.width > 1 && item.height > 1 && !tileSettings.isAppLabelsHidden) {
+                    Text(
+                        text = item.app.name,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = textColor,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                            .padding(horizontal = (tileSettings.cornerRadius * 0.5).dp),
+                    )
+                }
             }
         }
     }
