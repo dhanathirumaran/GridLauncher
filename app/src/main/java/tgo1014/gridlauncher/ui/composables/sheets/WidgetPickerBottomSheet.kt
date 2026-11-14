@@ -308,6 +308,6 @@ private fun calculateSpan(info: AppWidgetProviderInfo): Pair<Int, Int> {
         }
     }
     val spanX = ((info.minWidth + 30) / 70).coerceIn(1, Constants.gridColumns)
-    val spanY = ((info.minHeight + 30) / 70).coerceIn(1, 4)
+    val spanY = ((info.minHeight + 30) / 70).coerceIn(1, 8)
     return Pair(spanX, spanY)
 }

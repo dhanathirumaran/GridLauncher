@@ -135,20 +135,7 @@ fun Modifier.tileEditMode(isEditMode: Boolean) = composed {
     if (!isEditMode) {
         return@composed this
     }
-    val animatedFloat = remember { Animatable(1f) }
-    LaunchedEffect(animatedFloat) {
-        animatedFloat.animateTo(
-            targetValue = 0.85f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(
-                    600,
-                    easing = LinearOutSlowInEasing
-                ),
-                repeatMode = RepeatMode.Reverse
-            )
-        )
-    }
-    this.scale(animatedFloat.value)
+    this.scale(0.96f)
 }
 
 @Composable

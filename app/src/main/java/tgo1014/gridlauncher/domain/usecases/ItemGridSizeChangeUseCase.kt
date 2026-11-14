@@ -6,20 +6,29 @@ import tgo1014.gridlauncher.domain.models.TileSize
 import javax.inject.Inject
 
 class ItemGridSizeChangeUseCase @Inject constructor(
-    private val appsManager: AppsManager
+    private val appsManager: AppsManager,
+    private val resolveGridCollisionUseCase: ResolveGridCollisionUseCase,
 ) {
-    suspend operator fun invoke(itemId: Int, tileSize: TileSize) = runCatching {
+    suspend operator fun invoke(itemId: Int, newWidth: Int, newHeight: Int) = runCatching {
         val currentGrid = appsManager.homeGridFlow.first()
         val item = currentGrid.first { it.id == itemId }
-        val newGrid = currentGrid.filterNot { it.id == itemId }.toMutableList()
-        val newItem = when (tileSize) {
-            TileSize.Small -> item.copy(width = 1, height = 1)
-            TileSize.WideSmall -> item.copy(width = 2, height = 1)
-            TileSize.Medium -> item.copy(width = 2, height = 2)
-            TileSize.Large -> item.copy(width = 4, height = 2)
-            TileSize.ExtraLarge -> item.copy(width = 4, height = 4)
+        resolveGridCollisionUseCase(
+            targetItemId = itemId,
+            newX = item.x,
+            newY = item.y,
+            newWidth = newWidth,
+            newHeight = newHeight
+        ).getOrThrow()
+    }
+
+    suspend operator fun invoke(itemId: Int, tileSize: TileSize) = runCatching {
+        val (w, h) = when (tileSize) {
+            TileSize.Small -> 1 to 1
+            TileSize.WideSmall -> 2 to 1
+            TileSize.Medium -> 2 to 2
+            TileSize.Large -> 4 to 2
+            TileSize.ExtraLarge -> 4 to 4
         }
-        newGrid.add(newItem)
-        appsManager.setGrid(newGrid)
+        invoke(itemId, w, h).getOrThrow()
     }
 }

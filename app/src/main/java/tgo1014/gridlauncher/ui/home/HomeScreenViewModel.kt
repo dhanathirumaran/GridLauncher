@@ -169,13 +169,35 @@ class HomeScreenViewModel @Inject constructor(
     }
 
     fun onTileEvent(event: TileEvent) = viewModelScope.launch {
-        val item = _stateFlow.value.itemBeingEdited ?: return@launch
         when (event) {
-            is TileEvent.OnTileMoved -> moveGridItemUseCase(item.id, event.direction)
-            is TileEvent.OnSizeChange -> itemGridSizeChangeUseCase(item.id, event.tileSize)
-            TileEvent.OnTileSettingsSheetDismissed -> _stateFlow.update { it.copy(itemBeingEdited = null) }
-            TileEvent.OnRemoveClicked -> removeFromGridUseCase(item).onSuccess {
+            is TileEvent.OnTilePositionChanged -> {
+                moveGridItemUseCase(event.itemId, event.targetX, event.targetY)
+            }
+            is TileEvent.OnTileDimensionChanged -> {
+                itemGridSizeChangeUseCase(event.itemId, event.newWidth, event.newHeight)
+            }
+            is TileEvent.OnWidgetUnpinned -> {
+                removeFromGridUseCase(event.item).onSuccess {
+                    _stateFlow.update { it.copy(itemBeingEdited = null) }
+                }
+            }
+            TileEvent.OnDismissEditMode -> {
                 _stateFlow.update { it.copy(itemBeingEdited = null) }
+            }
+            is TileEvent.OnTileMoved -> {
+                val item = _stateFlow.value.itemBeingEdited ?: return@launch
+                moveGridItemUseCase(item.id, event.direction)
+            }
+            is TileEvent.OnSizeChange -> {
+                val item = _stateFlow.value.itemBeingEdited ?: return@launch
+                itemGridSizeChangeUseCase(item.id, event.tileSize)
+            }
+            TileEvent.OnTileSettingsSheetDismissed -> _stateFlow.update { it.copy(itemBeingEdited = null) }
+            TileEvent.OnRemoveClicked -> {
+                val item = _stateFlow.value.itemBeingEdited ?: return@launch
+                removeFromGridUseCase(item).onSuccess {
+                    _stateFlow.update { it.copy(itemBeingEdited = null) }
+                }
             }
         }
     }

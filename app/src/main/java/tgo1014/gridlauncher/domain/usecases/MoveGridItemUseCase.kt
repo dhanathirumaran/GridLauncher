@@ -7,19 +7,34 @@ import tgo1014.gridlauncher.domain.models.Direction
 import javax.inject.Inject
 
 class MoveGridItemUseCase @Inject constructor(
-    private val appsManager: AppsManager
+    private val appsManager: AppsManager,
+    private val resolveGridCollisionUseCase: ResolveGridCollisionUseCase,
 ) {
+    suspend operator fun invoke(itemId: Int, newX: Int, newY: Int) = runCatching {
+        resolveGridCollisionUseCase(
+            targetItemId = itemId,
+            newX = newX,
+            newY = newY
+        ).getOrThrow()
+    }
+
     suspend operator fun invoke(itemId: Int, direction: Direction) = runCatching {
         val currentGrid = appsManager.homeGridFlow.first()
         val item = currentGrid.first { it.id == itemId }
-        val newGrid = currentGrid.filterNot { it.id == itemId }.toMutableList()
-        val newItem = when (direction) {
-            Direction.Up -> item.copy(y = (item.y - 1).coerceAtLeast(0))
-            Direction.Down -> item.copy(y = item.y + 1)
-            Direction.Left -> item.copy(x = (item.x - 1).coerceAtLeast(0))
-            Direction.Right -> item.copy(x = (item.x + 1).coerceAtMost(Constants.gridColumns - item.width))
+        val targetX = when (direction) {
+            Direction.Left -> (item.x - 1).coerceAtLeast(0)
+            Direction.Right -> (item.x + 1).coerceAtMost(Constants.gridColumns - item.width)
+            else -> item.x
         }
-        newGrid.add(newItem)
-        appsManager.setGrid(newGrid)
+        val targetY = when (direction) {
+            Direction.Up -> (item.y - 1).coerceAtLeast(0)
+            Direction.Down -> item.y + 1
+            else -> item.y
+        }
+        resolveGridCollisionUseCase(
+            targetItemId = itemId,
+            newX = targetX,
+            newY = targetY
+        ).getOrThrow()
     }
 }

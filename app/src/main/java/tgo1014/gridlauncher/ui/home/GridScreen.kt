@@ -34,9 +34,9 @@ import dev.chrisbanes.haze.HazeState
 import tgo1014.gridlauncher.domain.models.App
 import android.appwidget.AppWidgetProviderInfo
 import tgo1014.gridlauncher.domain.models.TileSettings
+import androidx.activity.compose.BackHandler
 import tgo1014.gridlauncher.ui.composables.TileLayout
 import tgo1014.gridlauncher.ui.composables.sheets.SettingsBottomSheet
-import tgo1014.gridlauncher.ui.composables.sheets.TileSettingsBottomSheet
 import tgo1014.gridlauncher.ui.composables.sheets.WidgetPickerBottomSheet
 import tgo1014.gridlauncher.ui.models.GridItem
 import tgo1014.gridlauncher.ui.models.SettingsEvent
@@ -59,11 +59,30 @@ fun GridScreenScreen(
     onWidgetSelected: (AppWidgetProviderInfo) -> Unit = {},
 ) {
     var isOnTop by remember { mutableStateOf(true) }
+
+    BackHandler(enabled = state.itemBeingEdited != null) {
+        onTileEvent(TileEvent.OnDismissEditMode)
+    }
+
     TileLayout(
         grid = state.grid,
         tileSettings = state.tileSettings,
         hazeState = hazeState,
         itemBeingEdited = state.itemBeingEdited,
+        onItemClicked = onItemClicked,
+        onItemLongClicked = onItemLongClicked,
+        onTilePositionChanged = { id, targetX, targetY ->
+            onTileEvent(TileEvent.OnTilePositionChanged(id, targetX, targetY))
+        },
+        onTileDimensionChanged = { id, newW, newH ->
+            onTileEvent(TileEvent.OnTileDimensionChanged(id, newW, newH))
+        },
+        onWidgetUnpinned = { widgetItem ->
+            onTileEvent(TileEvent.OnWidgetUnpinned(widgetItem))
+        },
+        onDismissEditMode = {
+            onTileEvent(TileEvent.OnDismissEditMode)
+        },
         footer = { modifier ->
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
@@ -84,20 +103,11 @@ fun GridScreenScreen(
                 )
             }
         },
-        onItemLongClicked = onItemLongClicked,
         isOnTop = { isOnTop = it },
-        onItemClicked = onItemClicked,
-        contentPadding = if (state.itemBeingEdited == null) PaddingValues(0.dp) else PaddingValues(
-            bottom = 200.dp
-        ),
+        contentPadding = PaddingValues(0.dp),
         modifier = Modifier
             .fillMaxSize()
             .onOpenNotificationShade(isOnTop, onOpenNotificationShade)
-            // .background(Color.Black) TODO this line recreates old WP 7 style, need to add some options for this in the future
-    )
-    TileSettingsBottomSheet(
-        isShowing = state.isEditMode,
-        onTileEvent = onTileEvent,
     )
     SettingsBottomSheet(
         tileSettings = state.tileSettings,

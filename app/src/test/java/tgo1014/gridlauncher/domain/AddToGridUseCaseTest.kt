@@ -34,6 +34,7 @@ class AddToGridUseCaseTest {
             GridItem(app = App(), width = 2, height = 2, x = 0, y = 0),
             GridItem(app = App(), width = 2, height = 2, x = 2, y = 0),
             GridItem(app = App(), width = 2, height = 2, x = 4, y = 0),
+            GridItem(app = App(), width = 2, height = 2, x = 6, y = 0),
         )
         appsManager.setGrid(startGrid)
         assert(gridFlow.awaitItem().isEmpty())
@@ -47,7 +48,7 @@ class AddToGridUseCaseTest {
         val gridFlow = appsManager.homeGridFlow.testIn(it.backgroundScope)
         val startGrid = listOf(
             GridItem(app = App(), width = 2, height = 2, x = 0, y = 0),
-            GridItem(app = App(), width = 2, height = 2, x = 5, y = 0)
+            GridItem(app = App(), width = 2, height = 2, x = 6, y = 0)
         )
         appsManager.setGrid(startGrid)
         assert(gridFlow.awaitItem().isEmpty())

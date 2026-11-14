@@ -62,8 +62,8 @@ class AppIconManagerImpl @Inject constructor(
         }
     }
 
-    private val String.appIconPath get() = "${this}_icon.png"
-    private val String.appBgPath get() = "${this}_bg.png"
+    private val String.appIconPath get() = "${this}_icon_mono.png"
+    private val String.appBgPath get() = "${this}_bg_mono.png"
 
     private fun Bitmap.cacheImage(fileName: String): File {
         val cacheFile = File(context.cacheDir, fileName)
@@ -77,8 +77,9 @@ class AppIconManagerImpl @Inject constructor(
     }
 
     private fun getDefaultIconFromSystem(packageName: String): IconBitmap {
+        val rawBitmap = packageManager.getApplicationIcon(packageName).toBitmap()
         return IconBitmap(
-            icon = packageManager.getApplicationIcon(packageName).toBitmap()
+            icon = rawBitmap.toMonochromeWhite()
         )
     }
 
@@ -89,30 +90,81 @@ class AppIconManagerImpl @Inject constructor(
         return runCatching {
             val drawable = packageManager.getApplicationIcon(packageName)
             if (drawable is BitmapDrawable) {
-                return IconBitmap(drawable.bitmap)
+                return IconBitmap(icon = drawable.bitmap.toMonochromeWhite())
             }
             if (drawable is AdaptiveIconDrawable) {
+                // On Android 13+ (API 33), check for official themed monochrome icon
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val mono = drawable.monochrome?.mutate()
+                    if (mono != null) {
+                        mono.setTint(android.graphics.Color.WHITE)
+                        return IconBitmap(
+                            icon = mono.asBitmap(),
+                            bg = drawable.background.asBitmap()
+                        )
+                    }
+                }
+                // Convert foreground into clean white monochrome glyph
+                val foregroundBitmap = drawable.foreground.asBitmap().toMonochromeWhite()
                 return IconBitmap(
-                    icon = drawable.foreground.asBitmap(),
+                    icon = foregroundBitmap,
                     bg = drawable.background.asBitmap()
                 )
-                // Commented in case need to combine both
-                /*val backgroundDr = drawable.background
-                val foregroundDr = drawable.foreground
-                val drr = arrayOfNulls<Drawable>(2)
-                //drr[0] = backgroundDr
-                drr[1] = foregroundDr
-                val layerDrawable = LayerDrawable(drr)
-                val width = layerDrawable.intrinsicWidth
-                val height = layerDrawable.intrinsicHeight
-                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                val canvas = Canvas(bitmap)
-                layerDrawable.setBounds(0, 0, canvas.width, canvas.height)
-                layerDrawable.draw(canvas)
-                return bitmap.trimmed()*/
             }
             null
         }.getOrNull()
+    }
+
+    private fun Bitmap.toMonochromeWhite(): Bitmap {
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val pixels = IntArray(width * height)
+        getPixels(pixels, 0, width, 0, 0, width, height)
+
+        var hasTransparency = false
+        var minLum = 255
+        var maxLum = 0
+        for (pixel in pixels) {
+            val a = (pixel ushr 24) and 0xff
+            if (a < 20) {
+                hasTransparency = true
+            } else {
+                val r = (pixel shr 16) and 0xff
+                val g = (pixel shr 8) and 0xff
+                val b = pixel and 0xff
+                val lum = (0.299f * r + 0.587f * g + 0.114f * b).toInt()
+                if (lum < minLum) minLum = lum
+                if (lum > maxLum) maxLum = lum
+            }
+        }
+
+        val lumRange = maxLum - minLum
+        for (i in pixels.indices) {
+            val pixel = pixels[i]
+            val a = (pixel ushr 24) and 0xff
+            if (a == 0) {
+                pixels[i] = 0
+                continue
+            }
+            val r = (pixel shr 16) and 0xff
+            val g = (pixel shr 8) and 0xff
+            val b = pixel and 0xff
+            val lum = (0.299f * r + 0.587f * g + 0.114f * b).toInt()
+
+            val finalAlpha = if (hasTransparency) {
+                if (lumRange > 60) {
+                    val normalizedLum = (lum - minLum).toFloat() / lumRange
+                    (a * (0.45f + 0.55f * normalizedLum)).toInt().coerceIn(0, 255)
+                } else {
+                    a
+                }
+            } else {
+                val inverted = 255 - lum
+                (inverted * (a / 255f)).toInt().coerceIn(0, 255)
+            }
+            pixels[i] = (finalAlpha shl 24) or 0x00FFFFFF
+        }
+        output.setPixels(pixels, 0, width, 0, 0, width, height)
+        return output
     }
 
     private data class IconBitmap(
@@ -130,5 +182,4 @@ class AppIconManagerImpl @Inject constructor(
         this.draw(canvas)
         return bitmap
     }
-
 }
