@@ -59,12 +59,10 @@ fun WidgetTile(
         } else null
     }
 
-    val density = LocalDensity.current
-    var widthDp by remember { mutableIntStateOf(0) }
-    var heightDp by remember { mutableIntStateOf(0) }
-
-    LaunchedEffect(widthDp, heightDp, item.appWidgetId) {
-        if (item.appWidgetId != -1 && widthDp > 0 && heightDp > 0) {
+    LaunchedEffect(item.width, item.height, item.appWidgetId) {
+        if (item.appWidgetId != -1) {
+            val widthDp = item.width * 48
+            val heightDp = item.height * 48
             val options = Bundle().apply {
                 putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, widthDp)
                 putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, widthDp)
@@ -81,10 +79,6 @@ fun WidgetTile(
         modifier = Modifier
             .tileEditMode(isEditMode)
             .clip(shape)
-            .onSizeChanged { size ->
-                widthDp = with(density) { size.width.toDp().value.toInt() }
-                heightDp = with(density) { size.height.toDp().value.toInt() }
-            }
             .then(modifier)
     ) {
         Box(
@@ -101,7 +95,7 @@ fun WidgetTile(
                         .fillMaxSize()
                         .clip(shape)
                         .graphicsLayer {
-                            alpha = if (tileSettings.isTransparencyEnabled) 0.88f else 1.0f
+                            alpha = if (tileSettings.isTransparencyEnabled) 0.68f else 1.0f
                         },
                     factory = { context ->
                         val config = Configuration(context.resources.configuration).apply {
@@ -130,6 +124,18 @@ fun WidgetTile(
                         }
                     }
                 )
+
+                // Theme Tint Overlay to blend the widget card into the launcher's accent color
+                if (tileSettings.isTransparencyEnabled) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clip(shape)
+                            .background(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)
+                            )
+                    )
+                }
             } else {
                 Box(
                     modifier = Modifier

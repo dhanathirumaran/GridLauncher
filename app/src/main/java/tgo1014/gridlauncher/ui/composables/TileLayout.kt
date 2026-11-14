@@ -158,66 +158,89 @@ fun TileLayout(
         ) { tileItem ->
             val isBeingEdited = tileItem.id == itemBeingEdited?.id
 
-            var dragOffset by remember(tileItem.id, isBeingEdited) { mutableStateOf(Offset.Zero) }
-            var isDragging by remember(tileItem.id, isBeingEdited) { mutableStateOf(false) }
-            var resizeOffset by remember(tileItem.id, isBeingEdited) { mutableStateOf(Offset.Zero) }
-            var isResizing by remember(tileItem.id, isBeingEdited) { mutableStateOf(false) }
-
-            val deltaCols = if (gridItemSizePx > 0) (dragOffset.x / gridItemSizePx).roundToInt() else 0
-            val deltaRows = if (gridItemSizePx > 0) (dragOffset.y / gridItemSizePx).roundToInt() else 0
-            val targetCol = (tileItem.x + deltaCols).coerceIn(0, columns - tileItem.width)
-            val targetRow = (tileItem.y + deltaRows).coerceAtLeast(0)
-
-            val deltaW = if (gridItemSizePx > 0) (resizeOffset.x / gridItemSizePx).roundToInt() else 0
-            val deltaH = if (gridItemSizePx > 0) (resizeOffset.y / gridItemSizePx).roundToInt() else 0
-            val liveWidth = (tileItem.width + deltaW).coerceIn(1, columns - tileItem.x)
-            val liveHeight = (tileItem.height + deltaH).coerceIn(1, 8)
-
-            val tileShape = RoundedCornerShape(tileSettings.cornerRadius)
-
-            // When resizing, dynamically size the container so the user visually sees the live resize
-            val containerSizeModifier = if (isResizing) {
-                Modifier.requiredSize(
-                    width = gridItemSize * liveWidth,
-                    height = gridItemSize * liveHeight
-                )
+            if (!isBeingEdited) {
+                Box(
+                    modifier = Modifier
+                        .padding(2.dp)
+                        .fillMaxSize()
+                ) {
+                    GridTile(
+                        item = tileItem,
+                        tileSettings = tileSettings,
+                        isEditMode = false,
+                        onItemClicked = { clicked ->
+                            if (itemBeingEdited != null) {
+                                if (clicked.id != itemBeingEdited.id) {
+                                    onItemLongClicked(clicked)
+                                }
+                            } else {
+                                onItemClicked(clicked)
+                            }
+                        },
+                        onItemLongClicked = onItemLongClicked,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(hazeChildModifier)
+                    )
+                }
             } else {
-                Modifier.fillMaxSize()
-            }
+                var dragOffset by remember(tileItem.id) { mutableStateOf(Offset.Zero) }
+                var isDragging by remember(tileItem.id) { mutableStateOf(false) }
+                var resizeOffset by remember(tileItem.id) { mutableStateOf(Offset.Zero) }
+                var isResizing by remember(tileItem.id) { mutableStateOf(false) }
 
-            Box(
-                modifier = Modifier
-                    .padding(2.dp)
-                    .then(containerSizeModifier)
-                    .modifyIf(isBeingEdited) {
-                        graphicsLayer {
+                val deltaCols = if (gridItemSizePx > 0) (dragOffset.x / gridItemSizePx).roundToInt() else 0
+                val deltaRows = if (gridItemSizePx > 0) (dragOffset.y / gridItemSizePx).roundToInt() else 0
+                val targetCol = (tileItem.x + deltaCols).coerceIn(0, columns - tileItem.width)
+                val targetRow = (tileItem.y + deltaRows).coerceAtLeast(0)
+
+                val deltaW = if (gridItemSizePx > 0) (resizeOffset.x / gridItemSizePx).roundToInt() else 0
+                val deltaH = if (gridItemSizePx > 0) (resizeOffset.y / gridItemSizePx).roundToInt() else 0
+                val liveWidth = (tileItem.width + deltaW).coerceIn(1, columns - tileItem.x)
+                val liveHeight = (tileItem.height + deltaH).coerceIn(1, 8)
+
+                val tileShape = RoundedCornerShape(tileSettings.cornerRadius)
+
+                // When resizing, dynamically size the container so the user visually sees the live resize
+                val containerSizeModifier = if (isResizing) {
+                    Modifier.requiredSize(
+                        width = gridItemSize * liveWidth,
+                        height = gridItemSize * liveHeight
+                    )
+                } else {
+                    Modifier.fillMaxSize()
+                }
+
+                Box(
+                    modifier = Modifier
+                        .padding(2.dp)
+                        .then(containerSizeModifier)
+                        .graphicsLayer {
                             translationX = dragOffset.x
                             translationY = dragOffset.y
                             shadowElevation = if (isDragging) 24f else 4f
                         }
                         .zIndex(if (isDragging || isResizing) 50f else 10f)
-                    }
-            ) {
-                GridTile(
-                    item = tileItem,
-                    tileSettings = tileSettings,
-                    isEditMode = isBeingEdited,
-                    onItemClicked = { clicked ->
-                        if (itemBeingEdited != null) {
-                            if (clicked.id != itemBeingEdited.id) {
-                                onItemLongClicked(clicked)
+                ) {
+                    GridTile(
+                        item = tileItem,
+                        tileSettings = tileSettings,
+                        isEditMode = true,
+                        onItemClicked = { clicked ->
+                            if (itemBeingEdited != null) {
+                                if (clicked.id != itemBeingEdited.id) {
+                                    onItemLongClicked(clicked)
+                                }
+                            } else {
+                                onItemClicked(clicked)
                             }
-                        } else {
-                            onItemClicked(clicked)
-                        }
-                    },
-                    onItemLongClicked = onItemLongClicked,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .then(hazeChildModifier)
-                )
+                        },
+                        onItemLongClicked = onItemLongClicked,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(hazeChildModifier)
+                    )
 
-                if (isBeingEdited) {
                     // Active Drag Overlay Body (covers the entire tile to capture touch down instantly)
                     Box(
                         modifier = Modifier

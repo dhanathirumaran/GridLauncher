@@ -1,24 +1,25 @@
 package tgo1014.gridlauncher.domain.usecases
 
 import kotlinx.coroutines.flow.first
+import tgo1014.gridlauncher.app.Constants
 import tgo1014.gridlauncher.domain.AppsManager
+import tgo1014.gridlauncher.domain.GridPacker
 import tgo1014.gridlauncher.domain.models.TileSize
 import javax.inject.Inject
 
 class ItemGridSizeChangeUseCase @Inject constructor(
     private val appsManager: AppsManager,
-    private val resolveGridCollisionUseCase: ResolveGridCollisionUseCase,
 ) {
     suspend operator fun invoke(itemId: Int, newWidth: Int, newHeight: Int) = runCatching {
         val currentGrid = appsManager.homeGridFlow.first()
-        val item = currentGrid.first { it.id == itemId }
-        resolveGridCollisionUseCase(
-            targetItemId = itemId,
-            newX = item.x,
-            newY = item.y,
+        val packed = GridPacker.resizeAndPack(
+            items = currentGrid,
+            resizingItemId = itemId,
             newWidth = newWidth,
-            newHeight = newHeight
-        ).getOrThrow()
+            newHeight = newHeight,
+            columns = Constants.gridColumns
+        )
+        appsManager.setGrid(packed)
     }
 
     suspend operator fun invoke(itemId: Int, tileSize: TileSize) = runCatching {

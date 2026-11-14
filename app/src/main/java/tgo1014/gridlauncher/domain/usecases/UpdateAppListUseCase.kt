@@ -20,8 +20,9 @@ class UpdateAppListUseCase @Inject constructor(
         val filteredGrid = currentGrid.filter {
             it.itemType == GridItemType.WIDGET || it.app.packageName in installedPackageNames
         }
-        if (filteredGrid.size != currentGrid.size) {
-            appsManager.setGrid(filteredGrid)
+        val compactedGrid = tgo1014.gridlauncher.domain.GridPacker.compact(filteredGrid)
+        if (compactedGrid != currentGrid) {
+            appsManager.setGrid(compactedGrid)
         }
 
         // 2. Automatically add all installed apps that are not yet on the grid

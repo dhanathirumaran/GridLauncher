@@ -6,6 +6,7 @@ import androidx.compose.ui.geometry.Size
 import kotlinx.coroutines.flow.firstOrNull
 import tgo1014.gridlauncher.app.Constants
 import tgo1014.gridlauncher.domain.AppsManager
+import tgo1014.gridlauncher.domain.GridPacker
 import tgo1014.gridlauncher.domain.models.App
 import tgo1014.gridlauncher.ui.models.GridItem
 import javax.inject.Inject
@@ -69,6 +70,7 @@ class AddToGridUseCase @Inject constructor(
             )
             currentGrid.add(gridItem)
         }
-        appsManager.setGrid(currentGrid)
+        val compacted = GridPacker.compact(currentGrid)
+        appsManager.setGrid(compacted)
     }
 }
