@@ -11,8 +11,7 @@ plugins {
 
 android {
     namespace = "tgo1014.gridlauncher"
-    // compileSdk = 34
-    compileSdkPreview = "VanillaIceCream"
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "tgo1014.gridlauncher"
