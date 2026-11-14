@@ -20,6 +20,10 @@ class FakeAppsManager : AppsManager {
 
     }
 
+    override fun openShortcut(gridItem: GridItem) {
+
+    }
+
     override suspend fun updateAppsList() {
     }
 

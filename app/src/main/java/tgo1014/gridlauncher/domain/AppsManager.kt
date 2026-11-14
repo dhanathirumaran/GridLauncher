@@ -8,6 +8,7 @@ interface AppsManager {
     val installedAppsFlow: Flow<List<App>>
     val homeGridFlow: Flow<List<GridItem>>
     fun openApp(app: App)
+    fun openShortcut(gridItem: GridItem)
     suspend fun updateAppsList()
     fun uninstallApp(app: App)
     suspend fun setGrid(grid: List<GridItem>)

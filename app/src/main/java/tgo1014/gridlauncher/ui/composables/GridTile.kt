@@ -49,21 +49,12 @@ fun GridTile(
     onItemClicked: (item: GridItem) -> Unit = {},
     onItemLongClicked: (item: GridItem) -> Unit = {},
 ) {
-    val widgetHost = LocalAppWidgetHost.current
-    val widgetManager = LocalAppWidgetManager.current
-    if (item.itemType == tgo1014.gridlauncher.ui.models.GridItemType.WIDGET && widgetHost != null && widgetManager != null) {
-        WidgetTile(
-            item = item,
-            appWidgetHost = widgetHost,
-            appWidgetManager = widgetManager,
-            modifier = modifier,
-            tileSettings = tileSettings,
-            isEditMode = isEditMode,
-            onItemClicked = onItemClicked,
-            onItemLongClicked = onItemLongClicked,
-        )
-        return
-    }
+    val isShortcut = item.itemType == tgo1014.gridlauncher.ui.models.GridItemType.SHORTCUT
+    val itemName = if (isShortcut) item.shortcutLabel.orEmpty() else item.app.name
+    val iconModel = if (isShortcut) item.shortcutIconPath else item.app.icon.iconFile
+    val bgModel = if (isShortcut) null else item.app.icon.bgFile
+    val isLightBg = if (isShortcut) false else item.app.icon.isLightBackground
+
     val shape = RoundedCornerShape(tileSettings.cornerRadius)
     val app = item.app
     Box(
@@ -80,25 +71,33 @@ fun GridTile(
             .then(modifier)
     ) {
         if (!tileSettings.isTransparencyEnabled) {
-            AsyncImage(
-                model = app.icon.bgFile,
-                contentScale = ContentScale.FillWidth,
-                modifier = Modifier.fillMaxSize()
-            )
+            if (bgModel != null) {
+                AsyncImage(
+                    model = bgModel,
+                    contentScale = ContentScale.FillWidth,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                )
+            }
         }
         val onContainer = MaterialTheme.colorScheme.onPrimaryContainer
         val contentColor = contentColorFor(MaterialTheme.colorScheme.primaryContainer)
         val textColor = remember(
             tileSettings.isTransparencyEnabled,
-            app.icon.bgFile,
-            app.icon.isLightBackground,
+            bgModel,
+            isLightBg,
             onContainer,
             contentColor
         ) {
             when {
                 tileSettings.isTransparencyEnabled -> contentColor
-                app.icon.bgFile == null -> onContainer
-                app.icon.isLightBackground -> Color.Black
+                bgModel == null -> onContainer
+                isLightBg -> Color.Black
                 else -> Color.White
             }
         }
@@ -118,7 +117,7 @@ fun GridTile(
                     )
                 } else {
                     AsyncImage(
-                        model = item.app.icon.iconFile,
+                        model = iconModel,
                         contentDescription = null,
                         modifier = iconSizeModifier,
                     )
@@ -126,7 +125,7 @@ fun GridTile(
                 if (!tileSettings.isAppLabelsHidden) {
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = item.app.name,
+                        text = itemName,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = textColor,
@@ -146,14 +145,14 @@ fun GridTile(
                     )
                 } else {
                     AsyncImage(
-                        model = item.app.icon.iconFile,
+                        model = iconModel,
                         contentDescription = null,
                         modifier = iconModifier,
                     )
                 }
                 if (item.width > 1 && item.height > 1 && !tileSettings.isAppLabelsHidden) {
                     Text(
-                        text = item.app.name,
+                        text = itemName,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = textColor,

@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -32,12 +31,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
 import tgo1014.gridlauncher.domain.models.App
-import android.appwidget.AppWidgetProviderInfo
 import tgo1014.gridlauncher.domain.models.TileSettings
 import androidx.activity.compose.BackHandler
 import tgo1014.gridlauncher.ui.composables.TileLayout
 import tgo1014.gridlauncher.ui.composables.sheets.SettingsBottomSheet
-import tgo1014.gridlauncher.ui.composables.sheets.WidgetPickerBottomSheet
 import tgo1014.gridlauncher.ui.models.GridItem
 import tgo1014.gridlauncher.ui.models.SettingsEvent
 import tgo1014.gridlauncher.ui.models.TileEvent
@@ -54,9 +51,6 @@ fun GridScreenScreen(
     onOpenNotificationShade: () -> Unit = {},
     onTileEvent: (TileEvent) -> Unit = {},
     onSettingsEvent: (SettingsEvent) -> Unit = {},
-    onAddWidgetClicked: () -> Unit = {},
-    onDismissWidgetPicker: () -> Unit = {},
-    onWidgetSelected: (AppWidgetProviderInfo) -> Unit = {},
 ) {
     var isOnTop by remember { mutableStateOf(true) }
 
@@ -77,8 +71,8 @@ fun GridScreenScreen(
         onTileDimensionChanged = { id, newW, newH ->
             onTileEvent(TileEvent.OnTileDimensionChanged(id, newW, newH))
         },
-        onWidgetUnpinned = { widgetItem ->
-            onTileEvent(TileEvent.OnWidgetUnpinned(widgetItem))
+        onShortcutRemoved = { shortcutItem ->
+            onTileEvent(TileEvent.OnShortcutRemoved(shortcutItem))
         },
         onAppUninstalled = { appItem ->
             onTileEvent(TileEvent.OnAppUninstalled(appItem))
@@ -88,17 +82,12 @@ fun GridScreenScreen(
         },
         footer = { modifier ->
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(4.dp),
             ) {
-                AddWidgetIcon(
-                    modifier = modifier,
-                    tileSettings = state.tileSettings,
-                    onClicked = onAddWidgetClicked
-                )
                 SettingsIcon(
                     modifier = modifier,
                     tileSettings = state.tileSettings,
@@ -116,11 +105,6 @@ fun GridScreenScreen(
         tileSettings = state.tileSettings,
         isShowing = state.isSettingsSheetShowing,
         onSettingsEvent = onSettingsEvent
-    )
-    WidgetPickerBottomSheet(
-        isShowing = state.isWidgetPickerShowing,
-        onDismiss = onDismissWidgetPicker,
-        onWidgetSelected = onWidgetSelected,
     )
 }
 
@@ -168,47 +152,6 @@ private fun SettingsIcon(
     }
 }
 
-@Composable
-@Preview
-private fun AddWidgetIcon(
-    modifier: Modifier = Modifier,
-    onClicked: () -> Unit = {},
-    tileSettings: TileSettings = TileSettings()
-) {
-    Box(
-        modifier = Modifier
-            .height(40.dp)
-            .aspectRatio(1f)
-    ) {
-        val contentColor = contentColorFor(MaterialTheme.colorScheme.primaryContainer)
-        if (tileSettings.isTransparencyEnabled) {
-            Box(
-                modifier = modifier
-                    .clickable { onClicked() }
-                    .padding(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = "Add Widget",
-                    tint = contentColor
-                )
-            }
-        } else {
-            Box(
-                modifier = modifier
-                    .background(MaterialTheme.colorScheme.primaryContainer)
-                    .clickable { onClicked() }
-                    .padding(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = "Add Widget",
-                    tint = contentColor
-                )
-            }
-        }
-    }
-}
 
 @Composable
 @Preview

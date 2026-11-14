@@ -32,6 +32,24 @@ class AppIconManagerImpl @Inject constructor(
         }
     }
 
+    override suspend fun saveShortcutIcon(key: String, drawable: Drawable): String {
+        return withContext(dispatcherProvider.io) {
+            val safeKey = key.replace("[^a-zA-Z0-9_]".toRegex(), "_")
+            val monoBitmap = drawable.asBitmap(256, 256).toMonochromeWhite()
+            val file = monoBitmap.cacheImage("shortcut_${safeKey}_mono.png")
+            file.absolutePath
+        }
+    }
+
+    override suspend fun saveShortcutIcon(key: String, bitmap: Bitmap): String {
+        return withContext(dispatcherProvider.io) {
+            val safeKey = key.replace("[^a-zA-Z0-9_]".toRegex(), "_")
+            val monoBitmap = bitmap.toMonochromeWhite()
+            val file = monoBitmap.cacheImage("shortcut_${safeKey}_mono.png")
+            file.absolutePath
+        }
+    }
+
     private fun getIconFromCache(packageName: String): Icon? {
         val icon = File(context.cacheDir, packageName.appIconPath)
         if (!icon.exists()) {

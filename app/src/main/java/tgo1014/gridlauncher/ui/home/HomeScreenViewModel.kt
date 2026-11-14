@@ -17,7 +17,6 @@ import tgo1014.gridlauncher.domain.AppsManager
 import tgo1014.gridlauncher.domain.SettingsRepository
 import tgo1014.gridlauncher.domain.models.App
 import tgo1014.gridlauncher.domain.usecases.AddToGridUseCase
-import tgo1014.gridlauncher.domain.usecases.AddWidgetToGridUseCase
 import tgo1014.gridlauncher.domain.usecases.GetAppListUseCase
 import tgo1014.gridlauncher.domain.usecases.ItemGridSizeChangeUseCase
 import tgo1014.gridlauncher.domain.usecases.MoveGridItemUseCase
@@ -38,7 +37,6 @@ class HomeScreenViewModel @Inject constructor(
     private val getAppListUseCase: GetAppListUseCase,
     private val openNotificationShadeUseCase: OpenNotificationShadeUseCase,
     private val addToGridUseCase: AddToGridUseCase,
-    private val addWidgetToGridUseCase: AddWidgetToGridUseCase,
     private val moveGridItemUseCase: MoveGridItemUseCase,
     private val removeFromGridUseCase: RemoveFromGridUseCase,
     private val itemGridSizeChangeUseCase: ItemGridSizeChangeUseCase,
@@ -79,34 +77,15 @@ class HomeScreenViewModel @Inject constructor(
             !_stateFlow.value.isEditMode -> {
                 if (gridItem.itemType == GridItemType.APP) {
                     onOpenApp(gridItem.app)
+                } else if (gridItem.itemType == GridItemType.SHORTCUT) {
+                    delay(200)
+                    _stateFlow.update { it.copy(goToHome = true, closeSearchFab = true) }
+                    resetState()
+                    appsManager.openShortcut(gridItem)
                 }
             }
             else -> _stateFlow.update { it.copy(itemBeingEdited = gridItem) }
         }
-    }
-
-    fun onAddWidgetToGrid(
-        appWidgetId: Int,
-        packageName: String,
-        className: String,
-        width: Int = 4,
-        height: Int = 2
-    ) = viewModelScope.launch {
-        addWidgetToGridUseCase(
-            appWidgetId = appWidgetId,
-            packageName = packageName,
-            className = className,
-            width = width,
-            height = height
-        )
-    }
-
-    fun showWidgetPicker() {
-        _stateFlow.update { it.copy(isWidgetPickerShowing = true) }
-    }
-
-    fun dismissWidgetPicker() {
-        _stateFlow.update { it.copy(isWidgetPickerShowing = false) }
     }
 
     fun onGridItemLongClicked(gridItem: GridItem) {
@@ -176,7 +155,7 @@ class HomeScreenViewModel @Inject constructor(
             is TileEvent.OnTileDimensionChanged -> {
                 itemGridSizeChangeUseCase(event.itemId, event.newWidth, event.newHeight)
             }
-            is TileEvent.OnWidgetUnpinned -> {
+            is TileEvent.OnShortcutRemoved -> {
                 removeFromGridUseCase(event.item).onSuccess {
                     _stateFlow.update { it.copy(itemBeingEdited = null) }
                 }

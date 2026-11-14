@@ -16,9 +16,10 @@ class UpdateAppListUseCase @Inject constructor(
         val installedPackageNames = installedApps.map { it.packageName }.toSet()
         val currentGrid = appsManager.homeGridFlow.firstOrNull().orEmpty()
 
-        // 1. Remove apps that were uninstalled from device (keep widgets and existing apps)
+        // 1. Remove apps that were uninstalled from device and remove any legacy widgets
         val filteredGrid = currentGrid.filter {
-            it.itemType == GridItemType.WIDGET || it.app.packageName in installedPackageNames
+            (it.itemType == GridItemType.APP && it.app.packageName in installedPackageNames) ||
+            it.itemType == GridItemType.SHORTCUT
         }
         val compactedGrid = tgo1014.gridlauncher.domain.GridPacker.compact(filteredGrid)
         if (compactedGrid != currentGrid) {

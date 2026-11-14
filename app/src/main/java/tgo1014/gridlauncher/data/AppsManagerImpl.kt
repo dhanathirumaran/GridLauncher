@@ -39,6 +39,28 @@ class AppsManagerImpl @Inject constructor(
         context.startActivity(packageManager.getLaunchIntentForPackage(app.packageName))
     }
 
+    override fun openShortcut(gridItem: GridItem) {
+        try {
+            if (!gridItem.shortcutPackage.isNullOrEmpty() && !gridItem.shortcutId.isNullOrEmpty()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as? android.content.pm.LauncherApps
+                    if (launcherApps != null && launcherApps.hasShortcutHostPermission()) {
+                        launcherApps.startShortcut(gridItem.shortcutPackage, gridItem.shortcutId, null, null, android.os.Process.myUserHandle())
+                        return
+                    }
+                }
+            }
+            if (!gridItem.shortcutIntentUri.isNullOrEmpty()) {
+                val intent = Intent.parseUri(gridItem.shortcutIntentUri, Intent.URI_INTENT_SCHEME).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     override suspend fun setGrid(grid: List<GridItem>) = appsManagerDataSource.setGrid(grid)
 
     override suspend fun updateAppsList() {

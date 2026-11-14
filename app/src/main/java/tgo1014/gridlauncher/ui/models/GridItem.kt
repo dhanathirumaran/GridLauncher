@@ -6,7 +6,8 @@ import tgo1014.gridlauncher.domain.models.App
 @Serializable
 enum class GridItemType {
     APP,
-    WIDGET
+    WIDGET,
+    SHORTCUT
 }
 
 @Serializable
@@ -21,4 +22,9 @@ data class GridItem(
     val appWidgetId: Int = -1,
     val widgetPackage: String? = null,
     val widgetProvider: String? = null,
+    val shortcutId: String? = null,
+    val shortcutPackage: String? = null,
+    val shortcutLabel: String? = null,
+    val shortcutIconPath: String? = null,
+    val shortcutIntentUri: String? = null,
 )
