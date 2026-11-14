@@ -19,9 +19,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.Canvas
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -275,12 +275,13 @@ fun TileLayout(
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.OpenInFull,
-                            contentDescription = "Resize Tile",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
+                        Canvas(modifier = Modifier.size(14.dp)) {
+                            val stroke = 2.dp.toPx()
+                            val c = Color.White
+                            drawLine(c, Offset(size.width * 0.75f, size.height), Offset(size.width, size.height * 0.75f), stroke)
+                            drawLine(c, Offset(size.width * 0.45f, size.height), Offset(size.width, size.height * 0.45f), stroke)
+                            drawLine(c, Offset(size.width * 0.15f, size.height), Offset(size.width, size.height * 0.15f), stroke)
+                        }
                     }
 
                     // Live Pill Badge

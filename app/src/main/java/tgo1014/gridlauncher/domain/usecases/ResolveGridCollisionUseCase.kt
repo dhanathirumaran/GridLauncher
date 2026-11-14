@@ -1,5 +1,6 @@
 package tgo1014.gridlauncher.domain.usecases
 
+import kotlinx.coroutines.flow.first
 import tgo1014.gridlauncher.app.Constants
 import tgo1014.gridlauncher.domain.AppsManager
 import tgo1014.gridlauncher.ui.models.GridItem
@@ -15,7 +16,7 @@ class ResolveGridCollisionUseCase @Inject constructor(
         newWidth: Int? = null,
         newHeight: Int? = null,
     ) = runCatching {
-        val currentGrid = appsManager.homeGridFlow.value
+        val currentGrid = appsManager.homeGridFlow.first()
         val item = currentGrid.firstOrNull { it.id == targetItemId } ?: return@runCatching
 
         val updatedWidth = (newWidth ?: item.width).coerceIn(1, Constants.gridColumns)

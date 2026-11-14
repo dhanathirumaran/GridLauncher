@@ -1,5 +1,6 @@
 package tgo1014.gridlauncher.domain
 
+import kotlinx.coroutines.flow.first
 import org.junit.Before
 import org.junit.Test
 import tgo1014.gridlauncher.FakeAppsManager
@@ -28,7 +29,7 @@ class ResolveGridCollisionUseCaseTest {
         // Move tile2 to (0, 0), directly conflicting with tile1
         useCase(targetItemId = 2, newX = 0, newY = 0)
 
-        val updated = appsManager.homeGridFlow.value
+        val updated = appsManager.homeGridFlow.first()
         val movedTile2 = updated.first { it.id == 2 }
         val pushedTile1 = updated.first { it.id == 1 }
 
@@ -45,7 +46,7 @@ class ResolveGridCollisionUseCaseTest {
         // Resize tile1 from 2x2 to 2x4, expanding into tile2's row y=2
         useCase(targetItemId = 1, newX = 0, newY = 0, newWidth = 2, newHeight = 4)
 
-        val updated = appsManager.homeGridFlow.value
+        val updated = appsManager.homeGridFlow.first()
         val resizedTile1 = updated.first { it.id == 1 }
         val pushedTile2 = updated.first { it.id == 2 }
 
