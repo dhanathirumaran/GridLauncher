@@ -32,8 +32,15 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProviderInfo
+import androidx.compose.runtime.CompositionLocalProvider
+import tgo1014.gridlauncher.app.Constants
+import tgo1014.gridlauncher.data.widget.LauncherAppWidgetHost
 import tgo1014.gridlauncher.domain.ThemeRepository
 import tgo1014.gridlauncher.domain.usecases.UpdateAppListUseCase
+import tgo1014.gridlauncher.ui.composables.LocalAppWidgetHost
+import tgo1014.gridlauncher.ui.composables.LocalAppWidgetManager
 import tgo1014.gridlauncher.ui.home.HomeScreen
 import tgo1014.gridlauncher.ui.home.HomeScreenViewModel
 import tgo1014.gridlauncher.ui.theme.GridLauncherTheme
@@ -49,18 +56,42 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var updateAppListUseCase: UpdateAppListUseCase
 
+    @Inject
+    lateinit var appWidgetHost: LauncherAppWidgetHost
+
+    @Inject
+    lateinit var appWidgetManager: AppWidgetManager
+
     private val homeScreenViewModel: HomeScreenViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            SetupStatusBarIconsColorEffect()
-            val mainColor by themeRepository.currentTheme.collectAsState()
-            GridLauncherTheme(mainColor) {
-                HomeScreen(homeScreenViewModel)
+            CompositionLocalProvider(
+                LocalAppWidgetHost provides appWidgetHost,
+                LocalAppWidgetManager provides appWidgetManager,
+            ) {
+                SetupStatusBarIconsColorEffect()
+                val mainColor by themeRepository.currentTheme.collectAsState()
+                GridLauncherTheme(mainColor) {
+                    HomeScreen(
+                        viewModel = homeScreenViewModel,
+                        onAddWidgetClicked = { startWidgetPick() }
+                    )
+                }
             }
         }
         askToBeDefaultLauncher()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        runCatching { appWidgetHost.startListening() }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        runCatching { appWidgetHost.stopListening() }
     }
 
     override fun onResume() {
@@ -158,5 +189,99 @@ class MainActivity : ComponentActivity() {
      * https://cs.android.com/androidx/platform/frameworks/support/+/androidx-main:activity/activity/src/main/java/androidx/activity/EdgeToEdge.kt;l=40-44;drc=27e7d52e8604a080133e8b842db10c89b4482598
      */
     private val darkScrim = android.graphics.Color.argb(0x80, 0x1b, 0x1b, 0x1b)
+
+    private fun startWidgetPick() {
+        try {
+            val appWidgetId = appWidgetHost.allocateAppWidgetId()
+            val pickIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_PICK).apply {
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+            }
+            startActivityForResult(pickIntent, REQUEST_PICK_APPWIDGET)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        when (requestCode) {
+            REQUEST_PICK_APPWIDGET -> {
+                val appWidgetId = data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1) ?: -1
+                if (resultCode == RESULT_OK && appWidgetId != -1) {
+                    configureOrAddWidget(appWidgetId)
+                } else {
+                    if (appWidgetId != -1) {
+                        appWidgetHost.deleteAppWidgetId(appWidgetId)
+                    }
+                }
+            }
+            REQUEST_CREATE_APPWIDGET -> {
+                val appWidgetId = data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1) ?: -1
+                if (resultCode == RESULT_OK && appWidgetId != -1) {
+                    val appWidgetInfo = appWidgetManager.getAppWidgetInfo(appWidgetId)
+                    if (appWidgetInfo != null) {
+                        addWidgetToGrid(appWidgetId, appWidgetInfo)
+                    }
+                } else {
+                    if (appWidgetId != -1) {
+                        appWidgetHost.deleteAppWidgetId(appWidgetId)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun configureOrAddWidget(appWidgetId: Int) {
+        val appWidgetInfo = appWidgetManager.getAppWidgetInfo(appWidgetId) ?: run {
+            appWidgetHost.deleteAppWidgetId(appWidgetId)
+            return
+        }
+        if (appWidgetInfo.configure != null) {
+            try {
+                appWidgetHost.startAppWidgetConfigureActivityForResult(
+                    this,
+                    appWidgetId,
+                    0,
+                    REQUEST_CREATE_APPWIDGET,
+                    null
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+                addWidgetToGrid(appWidgetId, appWidgetInfo)
+            }
+        } else {
+            addWidgetToGrid(appWidgetId, appWidgetInfo)
+        }
+    }
+
+    private fun addWidgetToGrid(appWidgetId: Int, appWidgetInfo: AppWidgetProviderInfo) {
+        val (defaultW, defaultH) = calculateWidgetSpan(appWidgetInfo)
+        homeScreenViewModel.onAddWidgetToGrid(
+            appWidgetId = appWidgetId,
+            packageName = appWidgetInfo.provider.packageName,
+            className = appWidgetInfo.provider.className,
+            width = defaultW,
+            height = defaultH
+        )
+    }
+
+    private fun calculateWidgetSpan(info: AppWidgetProviderInfo): Pair<Int, Int> {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (info.targetCellWidth > 0 && info.targetCellHeight > 0) {
+                return Pair(
+                    info.targetCellWidth.coerceIn(2, Constants.gridColumns),
+                    info.targetCellHeight.coerceAtLeast(1)
+                )
+            }
+        }
+        val spanX = ((info.minWidth + 30) / 70).coerceIn(2, Constants.gridColumns)
+        val spanY = ((info.minHeight + 30) / 70).coerceIn(1, 4)
+        return Pair(spanX, spanY)
+    }
+
+    companion object {
+        private const val REQUEST_PICK_APPWIDGET = 2001
+        private const val REQUEST_CREATE_APPWIDGET = 2002
+    }
 
 }

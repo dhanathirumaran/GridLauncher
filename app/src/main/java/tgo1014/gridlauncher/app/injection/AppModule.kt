@@ -33,6 +33,18 @@ abstract class AppModule {
         @Provides
         @Singleton
         fun provideScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+        @Provides
+        @Singleton
+        fun provideAppWidgetManager(@ApplicationContext context: Context): android.appwidget.AppWidgetManager {
+            return android.appwidget.AppWidgetManager.getInstance(context)
+        }
+
+        @Provides
+        @Singleton
+        fun provideLauncherAppWidgetHost(@ApplicationContext context: Context): tgo1014.gridlauncher.data.widget.LauncherAppWidgetHost {
+            return tgo1014.gridlauncher.data.widget.LauncherAppWidgetHost(context)
+        }
     }
 
 }

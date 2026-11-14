@@ -16,6 +16,8 @@ class ItemGridSizeChangeUseCase @Inject constructor(
             TileSize.Small -> item.copy(width = 1, height = 1)
             TileSize.Medium -> item.copy(width = 2, height = 2)
             TileSize.Large -> item.copy(width = 4, height = 2)
+            TileSize.Wide -> item.copy(width = 6, height = 2)
+            TileSize.ExtraLarge -> item.copy(width = if (item.width >= 6) 6 else 4, height = 4)
         }
         newGrid.add(newItem)
         appsManager.setGrid(newGrid)

@@ -4,11 +4,21 @@ import kotlinx.serialization.Serializable
 import tgo1014.gridlauncher.domain.models.App
 
 @Serializable
+enum class GridItemType {
+    APP,
+    WIDGET
+}
+
+@Serializable
 data class GridItem(
     val id: Int = -1,
-    val app: App,
+    val app: App = App(),
     val width: Int,
     val height: Int = width,
     val x: Int = 0,
     val y: Int = 0,
+    val itemType: GridItemType = GridItemType.APP,
+    val appWidgetId: Int = -1,
+    val widgetPackage: String? = null,
+    val widgetProvider: String? = null,
 )

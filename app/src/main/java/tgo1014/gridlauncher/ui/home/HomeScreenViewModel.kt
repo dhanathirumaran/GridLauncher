@@ -17,6 +17,7 @@ import tgo1014.gridlauncher.domain.AppsManager
 import tgo1014.gridlauncher.domain.SettingsRepository
 import tgo1014.gridlauncher.domain.models.App
 import tgo1014.gridlauncher.domain.usecases.AddToGridUseCase
+import tgo1014.gridlauncher.domain.usecases.AddWidgetToGridUseCase
 import tgo1014.gridlauncher.domain.usecases.GetAppListUseCase
 import tgo1014.gridlauncher.domain.usecases.ItemGridSizeChangeUseCase
 import tgo1014.gridlauncher.domain.usecases.MoveGridItemUseCase
@@ -27,6 +28,7 @@ import tgo1014.gridlauncher.domain.usecases.wallpaper.RemoveWallpaperUseCase
 import tgo1014.gridlauncher.domain.usecases.wallpaper.StoreWallpaperPickedUseCase
 import tgo1014.gridlauncher.domain.usecases.wallpaper.UpdateWallpaperBasedOnThemeUseCase
 import tgo1014.gridlauncher.ui.models.GridItem
+import tgo1014.gridlauncher.ui.models.GridItemType
 import tgo1014.gridlauncher.ui.models.SettingsEvent
 import tgo1014.gridlauncher.ui.models.TileEvent
 import javax.inject.Inject
@@ -36,6 +38,7 @@ class HomeScreenViewModel @Inject constructor(
     private val getAppListUseCase: GetAppListUseCase,
     private val openNotificationShadeUseCase: OpenNotificationShadeUseCase,
     private val addToGridUseCase: AddToGridUseCase,
+    private val addWidgetToGridUseCase: AddWidgetToGridUseCase,
     private val moveGridItemUseCase: MoveGridItemUseCase,
     private val removeFromGridUseCase: RemoveFromGridUseCase,
     private val itemGridSizeChangeUseCase: ItemGridSizeChangeUseCase,
@@ -73,9 +76,29 @@ class HomeScreenViewModel @Inject constructor(
 
     fun onGridItemClicked(gridItem: GridItem) = viewModelScope.launch {
         when {
-            !_stateFlow.value.isEditMode -> onOpenApp(gridItem.app)
+            !_stateFlow.value.isEditMode -> {
+                if (gridItem.itemType == GridItemType.APP) {
+                    onOpenApp(gridItem.app)
+                }
+            }
             else -> _stateFlow.update { it.copy(itemBeingEdited = gridItem) }
         }
+    }
+
+    fun onAddWidgetToGrid(
+        appWidgetId: Int,
+        packageName: String,
+        className: String,
+        width: Int = 4,
+        height: Int = 2
+    ) = viewModelScope.launch {
+        addWidgetToGridUseCase(
+            appWidgetId = appWidgetId,
+            packageName = packageName,
+            className = className,
+            width = width,
+            height = height
+        )
     }
 
     fun onGridItemLongClicked(gridItem: GridItem) {

@@ -46,6 +46,21 @@ fun GridTile(
     onItemClicked: (item: GridItem) -> Unit = {},
     onItemLongClicked: (item: GridItem) -> Unit = {},
 ) {
+    val widgetHost = LocalAppWidgetHost.current
+    val widgetManager = LocalAppWidgetManager.current
+    if (item.itemType == tgo1014.gridlauncher.ui.models.GridItemType.WIDGET && widgetHost != null && widgetManager != null) {
+        WidgetTile(
+            item = item,
+            appWidgetHost = widgetHost,
+            appWidgetManager = widgetManager,
+            modifier = modifier,
+            tileSettings = tileSettings,
+            isEditMode = isEditMode,
+            onItemClicked = onItemClicked,
+            onItemLongClicked = onItemLongClicked,
+        )
+        return
+    }
     val shape = RoundedCornerShape(tileSettings.cornerRadius)
     val app = item.app
     Box(

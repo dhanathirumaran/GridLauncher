@@ -38,7 +38,8 @@ import tgo1014.gridlauncher.ui.theme.AsyncImage
 
 @Composable
 fun HomeScreen(
-    viewModel: HomeScreenViewModel = hiltViewModel()
+    viewModel: HomeScreenViewModel = hiltViewModel(),
+    onAddWidgetClicked: () -> Unit = {},
 ) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     HomeScreen(
@@ -54,7 +55,8 @@ fun HomeScreen(
         onItemLongClicked = viewModel::onGridItemLongClicked,
         onFabClosed = viewModel::onFabClosed,
         onSettingsEvent = viewModel::onSettingsEvent,
-        onTileEvent = viewModel::onTileEvent
+        onTileEvent = viewModel::onTileEvent,
+        onAddWidgetClicked = onAddWidgetClicked,
     )
 }
 
@@ -73,6 +75,7 @@ private fun HomeScreen(
     onFabClosed: () -> Unit = {},
     onSettingsEvent: (SettingsEvent) -> Unit = {},
     onTileEvent: (TileEvent) -> Unit = {},
+    onAddWidgetClicked: () -> Unit = {},
 ) = Box {
     val pagerState = rememberPagerState { 2 }
     val scope = rememberCoroutineScope()
@@ -128,6 +131,7 @@ private fun HomeScreen(
                 onItemLongClicked = onItemLongClicked,
                 onSettingsEvent = onSettingsEvent,
                 onTileEvent = onTileEvent,
+                onAddWidgetClicked = onAddWidgetClicked,
                 onFooterClicked = {
                     scope.launch {
                         pagerState.animateScrollToPage(1)
