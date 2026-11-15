@@ -23,7 +23,19 @@ class AddToGridUseCase @Inject constructor(
         val currentGrid = appsManager.homeGridFlow.firstOrNull().orEmpty().toMutableList()
         var maxId = currentGrid.maxOfOrNull { it.id } ?: -1
 
-        for (app in apps) {
+        val distinctApps = if (apps.size <= 1) {
+            apps
+        } else {
+            apps.distinctBy { it.packageName }
+        }.filter { app ->
+            app.packageName.isEmpty() || currentGrid.none {
+                it.itemType == tgo1014.gridlauncher.ui.models.GridItemType.APP && it.app.packageName == app.packageName
+            }
+        }
+
+        if (distinctApps.isEmpty()) return@runCatching
+
+        for (app in distinctApps) {
             if (currentGrid.isEmpty()) {
                 val gridItem = GridItem(
                     id = ++maxId,

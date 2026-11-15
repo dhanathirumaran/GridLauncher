@@ -103,6 +103,8 @@ class AppsManagerImpl @Inject constructor(
         }.getOrDefault(emptyList())
 
         return resolveInfoList
+            .filterNot { it.activityInfo.packageName == context.packageName }
+            .distinctBy { it.activityInfo.packageName }
             .mapNotNull { resolveInfo ->
                 runCatching {
                     val appInfo = resolveInfo.applicationInfo ?: return@mapNotNull null
