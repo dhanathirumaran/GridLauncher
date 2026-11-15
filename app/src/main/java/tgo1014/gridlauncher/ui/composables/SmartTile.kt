@@ -178,6 +178,18 @@ fun SmartTile(
                 )
             }
 
+            // Rich Weather Tile (2x4 vertical, 2x3, or 4x2 wide)
+            type == SmartTileType.WEATHER && (item.height >= 3 || (item.width >= 4 && item.height >= 2)) -> {
+                WeatherTileContent(
+                    weatherState = weatherState,
+                    icon = icon,
+                    contentColor = contentColor,
+                    width = item.width,
+                    height = item.height,
+                    isLabelHidden = tileSettings.isAppLabelsHidden
+                )
+            }
+
             // 2x1 Wide tile (or 4x1)
             item.width >= 2 && item.height == 1 -> {
                 Box(

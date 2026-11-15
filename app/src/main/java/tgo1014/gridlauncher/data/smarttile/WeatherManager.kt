@@ -26,6 +26,7 @@ data class WeatherState(
     val temperature: String = "--°",
     val condition: String = "No Data",
     val weatherCode: Int = 0,
+    val nextRainSummary: String = "No rain expected",
     val isError: Boolean = false,
     val isLocationMissing: Boolean = false
 )
@@ -43,7 +44,8 @@ class WeatherManager @Inject constructor(
         WeatherState(
             temperature = prefs.getString("LAST_TEMP", "--°") ?: "--°",
             condition = prefs.getString("LAST_COND", "No Data") ?: "No Data",
-            weatherCode = prefs.getInt("LAST_CODE", 0)
+            weatherCode = prefs.getInt("LAST_CODE", 0),
+            nextRainSummary = prefs.getString("LAST_RAIN", "No rain expected") ?: "No rain expected"
         )
     )
     val weatherState = _weatherState.asStateFlow()
@@ -105,18 +107,19 @@ class WeatherManager @Inject constructor(
                 }
             }
 
-            // If still no location, show "No Location" and do NOT query Delhi
+            // If still no location, show "No Location" and do NOT query
             if (lat == null || lon == null) {
                 _weatherState.value = WeatherState(
                     temperature = "--°",
                     condition = "No Location",
+                    nextRainSummary = "No Location",
                     isLocationMissing = true
                 )
                 return@withLock
             }
 
             try {
-                val url = URL("https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,weather_code")
+                val url = URL("https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,weather_code&hourly=precipitation_probability,precipitation&forecast_hours=24&timezone=auto")
                 val conn = url.openConnection() as HttpURLConnection
                 conn.connectTimeout = 8000
                 conn.readTimeout = 8000
@@ -129,10 +132,34 @@ class WeatherManager @Inject constructor(
                 val cond = interpretWeatherCode(code)
                 val tempStr = "${temp.toInt()}°"
 
+                val hourly = json.optJSONObject("hourly")
+                val rainSummary = if (hourly != null) {
+                    val timesJson = hourly.optJSONArray("time")
+                    val probsJson = hourly.optJSONArray("precipitation_probability")
+                    val precipsJson = hourly.optJSONArray("precipitation")
+
+                    val times = mutableListOf<String>()
+                    val probs = mutableListOf<Int>()
+                    val precips = mutableListOf<Double>()
+
+                    if (timesJson != null && probsJson != null && precipsJson != null) {
+                        val len = minOf(timesJson.length(), probsJson.length(), precipsJson.length())
+                        for (i in 0 until len) {
+                            times.add(timesJson.optString(i, ""))
+                            probs.add(probsJson.optInt(i, 0))
+                            precips.add(precipsJson.optDouble(i, 0.0))
+                        }
+                    }
+                    calculateNextRainSummary(times, probs, precips)
+                } else {
+                    "No rain expected"
+                }
+
                 prefs.edit()
                     .putString("LAST_TEMP", tempStr)
                     .putString("LAST_COND", cond)
                     .putInt("LAST_CODE", code)
+                    .putString("LAST_RAIN", rainSummary)
                     .apply()
 
                 lastFetchTimeMs = System.currentTimeMillis()
@@ -140,6 +167,7 @@ class WeatherManager @Inject constructor(
                     temperature = tempStr,
                     condition = cond,
                     weatherCode = code,
+                    nextRainSummary = rainSummary,
                     isError = false,
                     isLocationMissing = false
                 )
@@ -148,11 +176,13 @@ class WeatherManager @Inject constructor(
                 val cachedTemp = prefs.getString("LAST_TEMP", null)
                 val cachedCond = prefs.getString("LAST_COND", "Offline") ?: "Offline"
                 val cachedCode = prefs.getInt("LAST_CODE", 0)
+                val cachedRain = prefs.getString("LAST_RAIN", "Offline") ?: "Offline"
                 if (cachedTemp != null) {
                     _weatherState.value = WeatherState(
                         temperature = cachedTemp,
                         condition = cachedCond,
                         weatherCode = cachedCode,
+                        nextRainSummary = cachedRain,
                         isError = true,
                         isLocationMissing = false
                     )
@@ -160,6 +190,7 @@ class WeatherManager @Inject constructor(
                     _weatherState.value = WeatherState(
                         temperature = "--°",
                         condition = "Offline",
+                        nextRainSummary = "Offline",
                         isError = true,
                         isLocationMissing = false
                     )
@@ -178,6 +209,61 @@ class WeatherManager @Inject constructor(
             80, 81, 82 -> "Showers"
             95, 96, 99 -> "Thunderstorm"
             else -> "Sunny"
+        }
+    }
+
+    companion object {
+        fun calculateNextRainSummary(
+            times: List<String>,
+            probabilities: List<Int>,
+            precipitations: List<Double>
+        ): String {
+            if (times.isEmpty() || probabilities.isEmpty() || precipitations.isEmpty()) {
+                return "No rain expected"
+            }
+
+            val size = minOf(times.size, probabilities.size, precipitations.size)
+            if (size == 0) return "No rain expected"
+
+            fun formatHour(isoString: String): String {
+                val timePart = isoString.substringAfter("T", "")
+                val hourInt = timePart.substringBefore(":").toIntOrNull() ?: return ""
+                return when {
+                    hourInt == 0 -> "12 AM"
+                    hourInt < 12 -> "${hourInt} AM"
+                    hourInt == 12 -> "12 PM"
+                    else -> "${hourInt - 12} PM"
+                }
+            }
+
+            // Check if it is raining currently (index 0)
+            val isRainingNow = probabilities[0] >= 40 || precipitations[0] >= 0.2
+            if (isRainingNow) {
+                for (i in 1 until size) {
+                    if (probabilities[i] < 30 && precipitations[i] < 0.1) {
+                        val stopTime = formatHour(times[i])
+                        return if (stopTime.isNotEmpty()) "Raining now • stops ~$stopTime" else "Raining now"
+                    }
+                }
+                return "Raining now"
+            }
+
+            // Look for next rain in upcoming hours (index 1 until size)
+            val todayDate = times[0].substringBefore("T", "")
+            for (i in 1 until size) {
+                val prob = probabilities[i]
+                val precip = precipitations[i]
+                if (prob >= 40 || precip >= 0.2) {
+                    val hourStr = formatHour(times[i])
+                    val targetDate = times[i].substringBefore("T", "")
+                    val isTomorrow = targetDate.isNotEmpty() && todayDate.isNotEmpty() && targetDate != todayDate
+
+                    val prefix = if (isTomorrow) "Rain tomorrow, $hourStr" else "Rain at $hourStr"
+                    return if (prob > 0) "$prefix ($prob%)" else prefix
+                }
+            }
+
+            return "No rain expected"
         }
     }
 }
