@@ -31,9 +31,7 @@ class StepCounterManager @Inject constructor(
     val todaySteps = _todaySteps.asStateFlow()
 
     init {
-        val lastRaw = prefs.getInt("LAST_RAW_STEPS", 0)
-        checkDailyReset(lastRaw)
-        _todaySteps.value = calculateTodaySteps(lastRaw)
+        refresh()
         startListening()
     }
 
@@ -55,35 +53,68 @@ class StepCounterManager @Inject constructor(
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_STEP_COUNTER) {
             val raw = event.values[0].toInt()
-            checkDailyReset(raw)
-            prefs.edit().putInt("LAST_RAW_STEPS", raw).apply()
-            _todaySteps.value = calculateTodaySteps(raw)
+            updateSteps(raw)
         }
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
+    @Synchronized
     fun refresh() {
-        val lastRaw = prefs.getInt("LAST_RAW_STEPS", 0)
-        checkDailyReset(lastRaw)
-        _todaySteps.value = calculateTodaySteps(lastRaw)
-    }
-
-    private fun checkDailyReset(currentRaw: Int = prefs.getInt("LAST_RAW_STEPS", 0)) {
         val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
         val savedDay = prefs.getString("LAST_DAY", "")
         if (savedDay != todayStr) {
-            // New day has arrived: reset baseline to current cumulative raw steps
-            prefs.edit()
-                .putString("LAST_DAY", todayStr)
-                .putInt("BASELINE_STEPS", currentRaw)
-                .apply()
+            _todaySteps.value = 0
+            return
         }
+        val isInitialized = prefs.getBoolean("INITIALIZED", false)
+        if (!isInitialized) {
+            _todaySteps.value = 0
+            return
+        }
+        val lastRaw = prefs.getInt("LAST_RAW_STEPS", 0)
+        val baseline = prefs.getInt("BASELINE_STEPS", lastRaw)
+        val preReboot = prefs.getInt("PRE_REBOOT_TODAY_STEPS", 0)
+        val currentBootSteps = (lastRaw - baseline).coerceAtLeast(0)
+        _todaySteps.value = preReboot + currentBootSteps
     }
 
-    private fun calculateTodaySteps(currentRaw: Int): Int {
-        checkDailyReset(currentRaw)
-        val baseline = prefs.getInt("BASELINE_STEPS", currentRaw)
-        return (currentRaw - baseline).coerceAtLeast(0)
+    @Synchronized
+    private fun updateSteps(raw: Int) {
+        val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        val savedDay = prefs.getString("LAST_DAY", "")
+        val lastRaw = prefs.getInt("LAST_RAW_STEPS", -1)
+        val isInitialized = prefs.getBoolean("INITIALIZED", false)
+
+        if (!isInitialized || savedDay != todayStr) {
+            // First install or new day: calibrate baseline so today's steps start at 0
+            prefs.edit()
+                .putString("LAST_DAY", todayStr)
+                .putInt("BASELINE_STEPS", raw)
+                .putInt("PRE_REBOOT_TODAY_STEPS", 0)
+                .putInt("LAST_RAW_STEPS", raw)
+                .putBoolean("INITIALIZED", true)
+                .apply()
+            _todaySteps.value = 0
+            return
+        }
+
+        // Reboot detection on same day:
+        // Hardware sensor resets to 0 upon device reboot.
+        var preReboot = prefs.getInt("PRE_REBOOT_TODAY_STEPS", 0)
+        var baseline = prefs.getInt("BASELINE_STEPS", raw)
+        if (lastRaw != -1 && raw < lastRaw) {
+            val stepsBeforeReboot = (lastRaw - baseline).coerceAtLeast(0)
+            preReboot += stepsBeforeReboot
+            baseline = raw
+            prefs.edit()
+                .putInt("PRE_REBOOT_TODAY_STEPS", preReboot)
+                .putInt("BASELINE_STEPS", baseline)
+                .apply()
+        }
+
+        prefs.edit().putInt("LAST_RAW_STEPS", raw).apply()
+        val currentBootSteps = (raw - baseline).coerceAtLeast(0)
+        _todaySteps.value = preReboot + currentBootSteps
     }
 }

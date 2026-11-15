@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -135,11 +136,7 @@ fun TileLayout(
     }
 
     val footerRow = remember(grid) {
-        val maxY = grid.maxOfOrNull { it.y } ?: 0
-        val rowOffset = grid.filter { it.y == maxY }
-            .fastMaxOfOrNull { it.height }
-            ?: 0
-        maxY + rowOffset
+        grid.maxOfOrNull { it.y + it.height } ?: 0
     }
 
     // Disable vertical scrolling on the table when in Edit Mode so drag/resize gestures have zero friction
@@ -196,6 +193,8 @@ fun TileLayout(
                     )
                 }
             } else {
+                val currentTileItem by rememberUpdatedState(tileItem)
+                val currentColumns by rememberUpdatedState(columns)
                 var dragOffset by remember(tileItem.id) { mutableStateOf(Offset.Zero) }
                 var isDragging by remember(tileItem.id) { mutableStateOf(false) }
                 var resizeOffset by remember(tileItem.id) { mutableStateOf(Offset.Zero) }
@@ -266,10 +265,12 @@ fun TileLayout(
                                         isDragging = false
                                         val finalDeltaCols = if (gridItemSizePx > 0) (dragOffset.x / gridItemSizePx).roundToInt() else 0
                                         val finalDeltaRows = if (gridItemSizePx > 0) (dragOffset.y / gridItemSizePx).roundToInt() else 0
-                                        val finalCol = (tileItem.x + finalDeltaCols).coerceIn(0, columns - tileItem.width)
-                                        val finalRow = (tileItem.y + finalDeltaRows).coerceAtLeast(0)
-                                        if (finalCol != tileItem.x || finalRow != tileItem.y) {
-                                            onTilePositionChanged(tileItem.id, finalCol, finalRow)
+                                        val item = currentTileItem
+                                        val cols = currentColumns
+                                        val finalCol = (item.x + finalDeltaCols).coerceIn(0, cols - item.width)
+                                        val finalRow = (item.y + finalDeltaRows).coerceAtLeast(0)
+                                        if (finalCol != item.x || finalRow != item.y) {
+                                            onTilePositionChanged(item.id, finalCol, finalRow)
                                         }
                                         dragOffset = Offset.Zero
                                     },
@@ -349,10 +350,12 @@ fun TileLayout(
                                         isResizing = false
                                         val finalDeltaW = if (gridItemSizePx > 0) (resizeOffset.x / gridItemSizePx).roundToInt() else 0
                                         val finalDeltaH = if (gridItemSizePx > 0) (resizeOffset.y / gridItemSizePx).roundToInt() else 0
-                                        val finalW = (tileItem.width + finalDeltaW).coerceIn(1, columns - tileItem.x)
-                                        val finalH = (tileItem.height + finalDeltaH).coerceIn(1, 8)
-                                        if (finalW != tileItem.width || finalH != tileItem.height) {
-                                            onTileDimensionChanged(tileItem.id, finalW, finalH)
+                                        val item = currentTileItem
+                                        val cols = currentColumns
+                                        val finalW = (item.width + finalDeltaW).coerceIn(1, cols - item.x)
+                                        val finalH = (item.height + finalDeltaH).coerceIn(1, 8)
+                                        if (finalW != item.width || finalH != item.height) {
+                                            onTileDimensionChanged(item.id, finalW, finalH)
                                         }
                                         resizeOffset = Offset.Zero
                                     },

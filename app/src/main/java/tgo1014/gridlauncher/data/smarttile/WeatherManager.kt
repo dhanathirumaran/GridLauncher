@@ -1,9 +1,12 @@
 package tgo1014.gridlauncher.data.smarttile
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
+import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -50,11 +53,25 @@ class WeatherManager @Inject constructor(
     suspend fun fetchWeather() = withContext(Dispatchers.IO) {
         var lat = 28.6139
         var lon = 77.2090
-        runCatching {
-            val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
-            val loc: Location? = lm?.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
-                ?: lm?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-                ?: lm?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        if (lm != null) {
+            val hasFine = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+            val hasCoarse = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+
+            var loc: Location? = null
+            if (hasFine) {
+                loc = runCatching { lm.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER) }.getOrNull()
+                    ?: runCatching { lm.getLastKnownLocation(LocationManager.GPS_PROVIDER) }.getOrNull()
+            }
+            if (loc == null && (hasFine || hasCoarse)) {
+                loc = runCatching { lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) }.getOrNull()
+            }
             if (loc != null) {
                 lat = loc.latitude
                 lon = loc.longitude
