@@ -37,6 +37,7 @@ import tgo1014.gridlauncher.ui.theme.GridLauncherTheme
 fun SettingsBottomSheet(
     tileSettings: TileSettings,
     isShowing: Boolean,
+    isDefaultLauncher: Boolean = false,
     onSettingsEvent: (SettingsEvent) -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState()
@@ -51,6 +52,7 @@ fun SettingsBottomSheet(
         ) {
             SettingsBottomSheet(
                 tileSettings = tileSettings,
+                isDefaultLauncher = isDefaultLauncher,
                 onSettingsEvent = onSettingsEvent,
             )
         }
@@ -60,6 +62,7 @@ fun SettingsBottomSheet(
 @Composable
 private fun SettingsBottomSheet(
     tileSettings: TileSettings = TileSettings(),
+    isDefaultLauncher: Boolean = false,
     onSettingsEvent: (SettingsEvent) -> Unit = {},
 ) {
     val singlePhotoPickerLauncher = rememberLauncherForActivityResult(
@@ -79,6 +82,25 @@ private fun SettingsBottomSheet(
         verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier = Modifier.padding(8.dp)
     ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 4.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Default Launcher")
+                Text(
+                    text = if (isDefaultLauncher) "GridLauncher is set as default" else "Not set as default launcher",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Button(
+                onClick = { onSettingsEvent(SettingsEvent.OnOpenDefaultLauncherSettings) }
+            ) {
+                Text(if (isDefaultLauncher) "Change" else "Set Default")
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Tile Flipping Enabled:", modifier = Modifier.weight(1f))
             Switch(

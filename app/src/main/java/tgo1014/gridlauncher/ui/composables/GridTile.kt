@@ -58,9 +58,10 @@ fun GridTile(
             tileSettings = tileSettings,
             isEditMode = isEditMode,
             flashlightOn = smartData.flashlightOn,
-            stepCount = smartData.stepCount,
+            flashlightAvailable = smartData.flashlightAvailable,
+            stepCounterState = smartData.stepCounterState,
             batteryState = smartData.batteryState,
-            currencyRate = smartData.currencyRate,
+            currencyState = smartData.currencyState,
             weatherState = smartData.weatherState,
             onItemClicked = onItemClicked,
             onItemLongClicked = onItemLongClicked

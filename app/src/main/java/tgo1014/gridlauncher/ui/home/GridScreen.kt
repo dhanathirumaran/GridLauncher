@@ -100,6 +100,7 @@ fun GridScreenScreen(
     SettingsBottomSheet(
         tileSettings = state.tileSettings,
         isShowing = state.isSettingsSheetShowing,
+        isDefaultLauncher = state.isDefaultLauncher,
         onSettingsEvent = onSettingsEvent
     )
 }

@@ -18,6 +18,12 @@ import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
+data class StepCounterState(
+    val steps: Int = 0,
+    val isSupported: Boolean = true,
+    val hasPermission: Boolean = true
+)
+
 @Singleton
 class StepCounterManager @Inject constructor(
     @ApplicationContext private val context: Context
@@ -27,6 +33,14 @@ class StepCounterManager @Inject constructor(
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
     private val stepSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
 
+    private val _stepCounterState = MutableStateFlow(
+        StepCounterState(
+            isSupported = stepSensor != null,
+            hasPermission = checkPermission()
+        )
+    )
+    val stepCounterState = _stepCounterState.asStateFlow()
+
     private val _todaySteps = MutableStateFlow(0)
     val todaySteps = _todaySteps.asStateFlow()
 
@@ -35,18 +49,39 @@ class StepCounterManager @Inject constructor(
         startListening()
     }
 
-    fun startListening() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val hasPerm = ContextCompat.checkSelfPermission(
+    private fun checkPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.ACTIVITY_RECOGNITION
             ) == PackageManager.PERMISSION_GRANTED
-            if (!hasPerm) return
+        } else {
+            true
         }
-        stepSensor?.let {
+    }
+
+    fun startListening() {
+        val hasPerm = checkPermission()
+        val isSupported = stepSensor != null
+
+        if (!isSupported) {
+            _stepCounterState.value = _stepCounterState.value.copy(isSupported = false, hasPermission = hasPerm)
+            return
+        }
+        if (!hasPerm) {
+            _stepCounterState.value = _stepCounterState.value.copy(hasPermission = false)
+            return
+        }
+
+        val registered = stepSensor?.let {
             sensorManager?.unregisterListener(this)
             sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
-        }
+        } ?: false
+
+        _stepCounterState.value = _stepCounterState.value.copy(
+            isSupported = registered,
+            hasPermission = true
+        )
         refresh()
     }
 
@@ -65,18 +100,22 @@ class StepCounterManager @Inject constructor(
         val savedDay = prefs.getString("LAST_DAY", "")
         if (savedDay != todayStr) {
             _todaySteps.value = 0
+            _stepCounterState.value = _stepCounterState.value.copy(steps = 0)
             return
         }
         val isInitialized = prefs.getBoolean("INITIALIZED", false)
         if (!isInitialized) {
             _todaySteps.value = 0
+            _stepCounterState.value = _stepCounterState.value.copy(steps = 0)
             return
         }
         val lastRaw = prefs.getInt("LAST_RAW_STEPS", 0)
         val baseline = prefs.getInt("BASELINE_STEPS", lastRaw)
         val preReboot = prefs.getInt("PRE_REBOOT_TODAY_STEPS", 0)
         val currentBootSteps = (lastRaw - baseline).coerceAtLeast(0)
-        _todaySteps.value = preReboot + currentBootSteps
+        val total = preReboot + currentBootSteps
+        _todaySteps.value = total
+        _stepCounterState.value = _stepCounterState.value.copy(steps = total)
     }
 
     @Synchronized
@@ -96,6 +135,7 @@ class StepCounterManager @Inject constructor(
                 .putBoolean("INITIALIZED", true)
                 .apply()
             _todaySteps.value = 0
+            _stepCounterState.value = _stepCounterState.value.copy(steps = 0)
             return
         }
 
@@ -115,6 +155,8 @@ class StepCounterManager @Inject constructor(
 
         prefs.edit().putInt("LAST_RAW_STEPS", raw).apply()
         val currentBootSteps = (raw - baseline).coerceAtLeast(0)
-        _todaySteps.value = preReboot + currentBootSteps
+        val total = preReboot + currentBootSteps
+        _todaySteps.value = total
+        _stepCounterState.value = _stepCounterState.value.copy(steps = total)
     }
 }

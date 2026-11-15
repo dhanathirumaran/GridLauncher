@@ -9,4 +9,5 @@ sealed class SettingsEvent {
     data class OnSettingsUpdated(val tileSettings: TileSettings) : SettingsEvent()
     data object OnWallpaperRemoved : SettingsEvent()
     data class OnWallpaperPicked(val uri: Uri) : SettingsEvent()
+    data object OnOpenDefaultLauncherSettings : SettingsEvent()
 }

@@ -29,6 +29,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tgo1014.gridlauncher.data.smarttile.BatteryTileState
+import tgo1014.gridlauncher.data.smarttile.CurrencyState
+import tgo1014.gridlauncher.data.smarttile.StepCounterState
 import tgo1014.gridlauncher.data.smarttile.WeatherState
 import tgo1014.gridlauncher.domain.models.TileSettings
 import tgo1014.gridlauncher.ui.models.GridItem
@@ -46,9 +48,10 @@ fun SmartTile(
     tileSettings: TileSettings = TileSettings(),
     isEditMode: Boolean = false,
     flashlightOn: Boolean = false,
-    stepCount: Int = 0,
+    flashlightAvailable: Boolean = true,
+    stepCounterState: StepCounterState = StepCounterState(),
     batteryState: BatteryTileState = BatteryTileState(),
-    currencyRate: String = "84.40",
+    currencyState: CurrencyState = CurrencyState(),
     weatherState: WeatherState = WeatherState(),
     onItemClicked: (item: GridItem) -> Unit = {},
     onItemLongClicked: (item: GridItem) -> Unit = {},
@@ -68,15 +71,29 @@ fun SmartTile(
             Quad("Finder", SmartTileIcons.Search, null, null)
         }
         SmartTileType.FLASHLIGHT -> {
-            val status = if (flashlightOn) "On" else "Off"
+            val status = when {
+                !flashlightAvailable -> "Unavailable"
+                flashlightOn -> "On"
+                else -> "Off"
+            }
             Quad("Flashlight", SmartTileIcons.Flashlight, status, null)
         }
         SmartTileType.LOCK_SCREEN -> {
             Quad("Lock Screen", SmartTileIcons.Lock, null, null)
         }
         SmartTileType.STEP_COUNTER -> {
-            val formatted = String.format(Locale.US, "%,d", stepCount)
-            Quad("Walk", SmartTileIcons.Walk, formatted, "steps today")
+            when {
+                !stepCounterState.isSupported -> {
+                    Quad("Walk", SmartTileIcons.Walk, "No Sensor", "unsupported")
+                }
+                !stepCounterState.hasPermission -> {
+                    Quad("Walk", SmartTileIcons.Walk, "Permission", "tap to grant")
+                }
+                else -> {
+                    val formatted = String.format(Locale.US, "%,d", stepCounterState.steps)
+                    Quad("Walk", SmartTileIcons.Walk, formatted, "steps today")
+                }
+            }
         }
         SmartTileType.BATTERY -> {
             if (batteryState.isConnectedToBluetoothDevice && batteryState.bluetoothDeviceBattery != null) {
@@ -92,11 +109,26 @@ fun SmartTile(
             }
         }
         SmartTileType.CURRENCY -> {
-            Quad("USD / INR", SmartTileIcons.Currency, "₹$currencyRate", "1 USD")
+            val rateText = if (currencyState.rate == "--.--") "--.--" else "₹${currencyState.rate}"
+            val sub = when {
+                currencyState.isError && currencyState.isStale -> "1 USD (Offline)"
+                currencyState.isError -> "Offline"
+                else -> "1 USD"
+            }
+            Quad("USD / INR", SmartTileIcons.Currency, rateText, sub)
         }
         SmartTileType.WEATHER -> {
-            val weatherIcon = if (weatherState.weatherCode >= 50) SmartTileIcons.WeatherCloud else SmartTileIcons.WeatherSun
-            Quad("Weather", weatherIcon, weatherState.temperature, weatherState.condition)
+            val weatherIcon = when {
+                weatherState.isLocationMissing -> SmartTileIcons.Search
+                weatherState.weatherCode >= 50 -> SmartTileIcons.WeatherCloud
+                else -> SmartTileIcons.WeatherSun
+            }
+            val sub = when {
+                weatherState.isLocationMissing -> "No Location"
+                weatherState.isError -> "Offline"
+                else -> weatherState.condition
+            }
+            Quad("Weather", weatherIcon, weatherState.temperature, sub)
         }
     }
 

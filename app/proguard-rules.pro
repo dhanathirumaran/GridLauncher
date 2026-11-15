@@ -28,4 +28,27 @@
 -dontwarn org.openjsse.net.ssl.OpenJSSE
 -keep class com.google.errorprone.annotations.Immutable
 
+# Kotlinx Serialization Keep Rules
+-keepattributes *Annotation*,InnerClasses
+-dontnote kotlinx.serialization.SerializationKt
+
+-keepclassmembers class * {
+    @kotlinx.serialization.SerialName <fields>;
+}
+
+-keepclassmembers class * {
+    *** Companion;
+}
+
+-keepclasseswithmembers class * {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+
+-keep,allowobfuscation,allowshrinking class * extends kotlinx.serialization.internal.GeneratedSerializer { *; }
+
+# Keep domain models stored in DataStore / Smart Tile states
+-keep class tgo1014.gridlauncher.domain.models.** { *; }
+-keep class tgo1014.gridlauncher.ui.models.** { *; }
+-keep class tgo1014.gridlauncher.data.smarttile.** { *; }
+
 

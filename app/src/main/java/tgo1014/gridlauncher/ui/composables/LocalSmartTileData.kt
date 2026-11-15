@@ -2,13 +2,16 @@ package tgo1014.gridlauncher.ui.composables
 
 import androidx.compose.runtime.compositionLocalOf
 import tgo1014.gridlauncher.data.smarttile.BatteryTileState
+import tgo1014.gridlauncher.data.smarttile.CurrencyState
+import tgo1014.gridlauncher.data.smarttile.StepCounterState
 import tgo1014.gridlauncher.data.smarttile.WeatherState
 
 data class SmartTileData(
     val flashlightOn: Boolean = false,
-    val stepCount: Int = 0,
+    val flashlightAvailable: Boolean = true,
+    val stepCounterState: StepCounterState = StepCounterState(),
     val batteryState: BatteryTileState = BatteryTileState(),
-    val currencyRate: String = "84.40",
+    val currencyState: CurrencyState = CurrencyState(),
     val weatherState: WeatherState = WeatherState()
 )
 

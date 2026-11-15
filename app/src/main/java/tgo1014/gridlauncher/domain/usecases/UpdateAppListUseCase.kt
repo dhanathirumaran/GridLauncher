@@ -46,8 +46,18 @@ class UpdateAppListUseCase @Inject constructor(
                         } else if (pkg in installedPackageNames && seenPackages.add(pkg)) {
                             val freshApp = installedAppMap[pkg] ?: item.app
                             item.copy(app = freshApp)
+                        } else if (seenPackages.add(pkg)) {
+                            // Check if genuinely uninstalled or merely omitted in a transient/delayed query
+                            val isStillInstalled = runCatching {
+                                context.packageManager.getPackageInfo(pkg, 0)
+                            }.isSuccess
+                            if (isStillInstalled) {
+                                item // Keep tile safely
+                            } else {
+                                null // Confirmed uninstalled
+                            }
                         } else {
-                            null
+                            null // Duplicate tile
                         }
                     }
                     GridItemType.SHORTCUT, GridItemType.SMART_TILE -> item

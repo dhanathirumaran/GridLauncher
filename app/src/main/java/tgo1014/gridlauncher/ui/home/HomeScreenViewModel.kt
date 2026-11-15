@@ -17,8 +17,13 @@ import tgo1014.gridlauncher.domain.AppsManager
 import tgo1014.gridlauncher.domain.SettingsRepository
 import tgo1014.gridlauncher.domain.models.App
 import tgo1014.gridlauncher.domain.usecases.AddToGridUseCase
+import android.app.role.RoleManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -75,18 +80,20 @@ class HomeScreenViewModel @Inject constructor(
 
     val smartTileData = combine(
         flashlightManager.isFlashlightOn,
-        stepCounterManager.todaySteps,
+        flashlightManager.isAvailable,
+        stepCounterManager.stepCounterState,
         batteryTileManager.state,
-        currencyRateManager.usdInrRate,
-        weatherManager.weatherState
-    ) { torch, steps, battery, currency, weather ->
+        currencyRateManager.currencyState
+    ) { torch, torchAvailable, steps, battery, currency ->
         SmartTileData(
             flashlightOn = torch,
-            stepCount = steps,
+            flashlightAvailable = torchAvailable,
+            stepCounterState = steps,
             batteryState = battery,
-            currencyRate = currency,
-            weatherState = weather
+            currencyState = currency
         )
+    }.combine(weatherManager.weatherState) { data, weather ->
+        data.copy(weatherState = weather)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SmartTileData())
 
     init {
@@ -128,7 +135,13 @@ class HomeScreenViewModel @Inject constructor(
     private fun handleSmartTileClick(gridItem: GridItem) {
         when (gridItem.smartTileType) {
             SmartTileType.FINDER -> SamsungFinderHelper.launch(context)
-            SmartTileType.FLASHLIGHT -> flashlightManager.toggle()
+            SmartTileType.FLASHLIGHT -> {
+                if (!flashlightManager.isAvailable.value) {
+                    Toast.makeText(context, "Flashlight unavailable", Toast.LENGTH_SHORT).show()
+                } else {
+                    flashlightManager.toggle()
+                }
+            }
             SmartTileType.LOCK_SCREEN -> {
                 val locked = LockScreenAccessibilityService.lockScreen()
                 if (!locked) {
@@ -143,6 +156,17 @@ class HomeScreenViewModel @Inject constructor(
             }
             SmartTileType.STEP_COUNTER -> {
                 stepCounterManager.startListening()
+                if (!stepCounterManager.stepCounterState.value.hasPermission) {
+                    runCatching {
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                        Toast.makeText(context, "Please grant Physical Activity permission for Step Counter", Toast.LENGTH_LONG).show()
+                    }
+                    return
+                }
                 val healthIntent = context.packageManager.getLaunchIntentForPackage("com.sec.android.app.shealth")
                     ?: context.packageManager.getLaunchIntentForPackage("com.google.android.apps.fitness")
                 if (healthIntent != null) {
@@ -163,7 +187,7 @@ class HomeScreenViewModel @Inject constructor(
                 viewModelScope.launch { currencyRateManager.fetchRateIfNeeded(force = true) }
             }
             SmartTileType.WEATHER -> {
-                viewModelScope.launch { weatherManager.fetchWeather() }
+                viewModelScope.launch { weatherManager.fetchWeather(force = true) }
             }
             null -> {}
         }
@@ -200,11 +224,27 @@ class HomeScreenViewModel @Inject constructor(
         _stateFlow.update { it.copy(filterString = "", appList = fullAppList) }
     }
 
+    fun isDefaultLauncher(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = context.getSystemService(Context.ROLE_SERVICE) as? RoleManager
+            roleManager?.isRoleHeld(RoleManager.ROLE_HOME) ?: false
+        } else {
+            val componentName = ComponentName(context, MainActivity::class.java)
+            val intentFilter = IntentFilter(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_HOME)
+            }
+            val activities = ArrayList<ComponentName>()
+            context.packageManager.getPreferredActivities(mutableListOf(intentFilter), activities, null)
+            activities.contains(componentName)
+        }
+    }
+
     fun onSettingsEvent(event: SettingsEvent) = viewModelScope.launch {
         when (event) {
             SettingsEvent.OnSettingsIconClicked -> _stateFlow.update {
                 it.copy(
-                    isSettingsSheetShowing = true
+                    isSettingsSheetShowing = true,
+                    isDefaultLauncher = isDefaultLauncher()
                 )
             }
 
@@ -217,6 +257,14 @@ class HomeScreenViewModel @Inject constructor(
             is SettingsEvent.OnSettingsUpdated -> settingsRepository.updateSettings(event.tileSettings)
             is SettingsEvent.OnWallpaperPicked -> storeWallpaperPickedUseCase(event.uri)
             SettingsEvent.OnWallpaperRemoved -> onRemoveWallpaperUseCase()
+            SettingsEvent.OnOpenDefaultLauncherSettings -> {
+                runCatching {
+                    val intent = Intent(Settings.ACTION_HOME_SETTINGS).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                }
+            }
         }
     }
 
