@@ -48,31 +48,59 @@ class AppNotificationListenerService : NotificationListenerService() {
                 val extras = notif.extras ?: continue
 
                 val convTitle = extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString()?.trim()
-                val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim()
-                val senderName = convTitle?.takeIf { it.isNotBlank() } ?: title?.takeIf { it.isNotBlank() }
+                val rawTitle = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim()
+                val rawText = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
+
+                // Check for missed call
+                val isMissedCategory = notif.category == Notification.CATEGORY_MISSED_CALL
+                val titleLower = rawTitle?.lowercase().orEmpty()
+                val textLower = rawText?.lowercase().orEmpty()
+                val isMissedCall = isMissedCategory ||
+                        titleLower == "missed call" ||
+                        titleLower.startsWith("missed call") ||
+                        textLower == "missed call" ||
+                        (tgo1014.gridlauncher.data.phone.PhoneAppManager.isPhoneApp(pkg, this) && (titleLower.contains("missed") || textLower.contains("missed")))
+
+                val senderName: String?
+                if (isMissedCall) {
+                    senderName = tgo1014.gridlauncher.data.phone.PhoneAppManager.extractCallerName(rawTitle, rawText)
+                } else {
+                    senderName = convTitle?.takeIf { it.isNotBlank() } ?: rawTitle?.takeIf { it.isNotBlank() }
+                }
 
                 if (senderName.isNullOrBlank()) continue
 
                 // Filter out non-sender system alerts
-                if (isIgnoredTitle(senderName)) continue
+                if (!isMissedCall && isIgnoredTitle(senderName)) continue
 
+                val postTime = if (sbn.postTime > 0) sbn.postTime else System.currentTimeMillis()
                 val sender = NotificationSender(
                     name = senderName,
                     count = 1,
-                    timestamp = sbn.postTime
+                    timestamp = postTime,
+                    isMissedCall = isMissedCall
                 )
 
-                packageMap.getOrPut(pkg) { mutableListOf() }.add(sender)
+                val targetPackages = mutableSetOf(pkg)
+                if (isMissedCall) {
+                    targetPackages.addAll(tgo1014.gridlauncher.data.phone.PhoneAppManager.getAllDialerPackages(this))
+                }
+
+                for (targetPkg in targetPackages) {
+                    packageMap.getOrPut(targetPkg) { mutableListOf() }.add(sender)
+                }
             }
 
             // Deduplicate senders per package and sort by most recent
             val finalizedMap = packageMap.mapValues { (_, senders) ->
                 senders.groupBy { it.name }
                     .map { (name, list) ->
+                        val hasMissedCall = list.any { it.isMissedCall }
                         NotificationSender(
                             name = name,
                             count = list.size,
-                            timestamp = list.maxOfOrNull { it.timestamp } ?: System.currentTimeMillis()
+                            timestamp = list.maxOfOrNull { it.timestamp } ?: System.currentTimeMillis(),
+                            isMissedCall = hasMissedCall
                         )
                     }
                     .sortedByDescending { it.timestamp }

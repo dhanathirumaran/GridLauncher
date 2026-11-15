@@ -6,5 +6,6 @@ import kotlinx.serialization.Serializable
 data class NotificationSender(
     val name: String,
     val count: Int = 1,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val isMissedCall: Boolean = false
 )

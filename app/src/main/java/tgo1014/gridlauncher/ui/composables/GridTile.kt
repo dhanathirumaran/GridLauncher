@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tgo1014.gridlauncher.data.calendar.CalendarEventManager
 import tgo1014.gridlauncher.data.notification.NotificationSender
+import tgo1014.gridlauncher.data.phone.PhoneAppManager
 import tgo1014.gridlauncher.domain.models.App
 import tgo1014.gridlauncher.domain.models.TileSettings
 import tgo1014.gridlauncher.ui.models.GridItem
@@ -132,6 +133,8 @@ fun GridTile(
         val liveNotifications = if (!isShortcut) LocalAppNotifications.current[item.app.packageName] else null
         val hasLiveNotifications = !liveNotifications.isNullOrEmpty()
         val isCalendar = !isShortcut && CalendarEventManager.isCalendarApp(item.app.packageName)
+        val isPhone = !isShortcut && PhoneAppManager.isPhoneApp(item.app.packageName)
+        val hasMissedCall = hasLiveNotifications && (isPhone || liveNotifications.orEmpty().any { it.isMissedCall })
 
         if (item.width >= 4 && item.height >= 2 && isCalendar) {
             val smartData = LocalSmartTileData.current
@@ -140,6 +143,13 @@ fun GridTile(
                 isPermissionGranted = smartData.isCalendarPermissionGranted,
                 textColor = textColor,
                 maxEvents = if (item.height >= 3) 4 else 2
+            )
+        } else if (item.width >= 4 && item.height >= 2 && hasMissedCall) {
+            AppleMissedCallContent(
+                iconModel = iconModel,
+                liveNotifications = liveNotifications!!,
+                textColor = textColor,
+                isPreview = isPreview
             )
         } else if (item.width >= 4 && item.height >= 2 && hasLiveNotifications) {
             val horizontalPadding = (16 + (tileSettings.cornerRadius - 8).coerceAtLeast(0) * 0.2f).dp
