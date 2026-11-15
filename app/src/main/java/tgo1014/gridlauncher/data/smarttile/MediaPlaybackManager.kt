@@ -197,13 +197,13 @@ class MediaPlaybackManager @Inject constructor(
     }
 
     fun launchPlayer(ctx: Context) {
-        val controller = activeController
-        try {
-            if (controller?.sessionActivity != null) {
-                controller.sessionActivity.send()
+        val activity = controller?.sessionActivity
+        if (activity != null) {
+            try {
+                activity.send()
                 return
-            }
-        } catch (_: Exception) {}
+            } catch (_: Exception) {}
+        }
 
         val pkg = controller?.packageName
         if (!pkg.isNullOrBlank()) {

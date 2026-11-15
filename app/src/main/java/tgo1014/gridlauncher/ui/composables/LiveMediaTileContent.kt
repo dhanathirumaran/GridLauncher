@@ -17,12 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -84,7 +78,7 @@ fun LiveMediaTileContent(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.MusicNote,
+                            imageVector = SmartTileIcons.MusicNote,
                             contentDescription = null,
                             tint = textColor.copy(alpha = 0.7f),
                             modifier = Modifier.size(28.dp)
@@ -131,7 +125,7 @@ fun LiveMediaTileContent(
                         modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.SkipPrevious,
+                            imageVector = SmartTileIcons.SkipPrevious,
                             contentDescription = "Previous",
                             tint = textColor,
                             modifier = Modifier.size(24.dp)
@@ -148,7 +142,7 @@ fun LiveMediaTileContent(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = if (mediaState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            imageVector = if (mediaState.isPlaying) SmartTileIcons.Pause else SmartTileIcons.Play,
                             contentDescription = if (mediaState.isPlaying) "Pause" else "Play",
                             tint = textColor,
                             modifier = Modifier.size(24.dp)
@@ -161,7 +155,7 @@ fun LiveMediaTileContent(
                         modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.SkipNext,
+                            imageVector = SmartTileIcons.SkipNext,
                             contentDescription = "Next",
                             tint = textColor,
                             modifier = Modifier.size(24.dp)

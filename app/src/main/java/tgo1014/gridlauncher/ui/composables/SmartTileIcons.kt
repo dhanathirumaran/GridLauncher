@@ -274,4 +274,111 @@ object SmartTileIcons {
             }
         }.build()
     }
+
+    val Play: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "Play",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(fill = SolidColor(Color.White)) {
+                moveTo(8f, 5f)
+                lineTo(19f, 12f)
+                lineTo(8f, 19f)
+                close()
+            }
+        }.build()
+    }
+
+    val Pause: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "Pause",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(fill = SolidColor(Color.White)) {
+                moveTo(6f, 19f)
+                lineTo(10f, 19f)
+                lineTo(10f, 5f)
+                lineTo(6f, 5f)
+                close()
+                moveTo(14f, 5f)
+                lineTo(14f, 19f)
+                lineTo(18f, 19f)
+                lineTo(18f, 5f)
+                close()
+            }
+        }.build()
+    }
+
+    val SkipNext: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "SkipNext",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(fill = SolidColor(Color.White)) {
+                moveTo(6f, 18f)
+                lineTo(14.5f, 12f)
+                lineTo(6f, 6f)
+                close()
+                moveTo(16f, 6f)
+                lineTo(18f, 6f)
+                lineTo(18f, 18f)
+                lineTo(16f, 18f)
+                close()
+            }
+        }.build()
+    }
+
+    val SkipPrevious: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "SkipPrevious",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(fill = SolidColor(Color.White)) {
+                moveTo(6f, 6f)
+                lineTo(8f, 6f)
+                lineTo(8f, 18f)
+                lineTo(6f, 18f)
+                close()
+                moveTo(9.5f, 12f)
+                lineTo(18f, 18f)
+                lineTo(18f, 6f)
+                close()
+            }
+        }.build()
+    }
+
+    val MusicNote: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "MusicNote",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(fill = SolidColor(Color.White)) {
+                moveTo(12f, 3f)
+                lineTo(12f, 13.55f)
+                curveTo(11.41f, 13.21f, 10.73f, 13f, 10f, 13f)
+                curveTo(7.79f, 13f, 6f, 14.79f, 6f, 17f)
+                curveTo(6f, 19.21f, 7.79f, 21f, 10f, 21f)
+                curveTo(12.21f, 21f, 14f, 19.21f, 14f, 17f)
+                lineTo(14f, 7f)
+                lineTo(18f, 7f)
+                lineTo(18f, 3f)
+                close()
+            }
+        }.build()
+    }
 }
