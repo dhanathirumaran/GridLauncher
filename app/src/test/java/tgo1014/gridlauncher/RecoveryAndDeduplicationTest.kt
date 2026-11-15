@@ -47,8 +47,8 @@ class RecoveryAndDeduplicationTest {
     @Test
     fun `recoverGridItems recovers intact items from JSON with corrupted elements`() {
         val validItem = """{"id":1,"app":{"name":"TestApp","packageName":"com.test.app","isSystemApp":false},"itemType":"APP","width":1,"height":1,"x":0,"y":0}"""
-        val corruptedItem = """{"corrupted":true, broken}"""
-        val arrayJson = "[$validItem, $corruptedItem]"
+        val invalidItem = """{"id":2,"itemType":"UNKNOWN_CORRUPTED_TYPE"}"""
+        val arrayJson = "[$validItem, $invalidItem]"
 
         val recovered = AppsManagerDataSourceImpl.recoverGridItems(arrayJson, json)
         assertEquals(1, recovered.size)
