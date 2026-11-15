@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -179,15 +180,23 @@ class PinShortcutActivity : ComponentActivity() {
                                             previewBitmap != null -> appIconManager.saveShortcutIcon(shortcutId, previewBitmap)
                                             else -> null
                                         }
-                                        addShortcutToGridUseCase(
+                                        val addResult = addShortcutToGridUseCase(
                                             shortcutId = shortcutId,
                                             packageName = packageName,
                                             label = label,
                                             iconPath = iconPath,
                                             intentUri = intentUri
                                         )
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && pinItemRequest?.isValid == true) {
-                                            pinItemRequest.accept()
+                                        if (addResult.isSuccess) {
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && pinItemRequest?.isValid == true) {
+                                                val accepted = runCatching { pinItemRequest.accept() }.getOrDefault(false)
+                                                if (!accepted) {
+                                                    android.util.Log.w("PinShortcutActivity", "pinItemRequest.accept() returned false")
+                                                }
+                                            }
+                                        } else {
+                                            android.util.Log.e("PinShortcutActivity", "Failed to save shortcut to grid", addResult.exceptionOrNull())
+                                            Toast.makeText(this@PinShortcutActivity, "Failed to add shortcut", Toast.LENGTH_SHORT).show()
                                         }
                                         finish()
                                     }

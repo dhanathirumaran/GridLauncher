@@ -38,6 +38,16 @@ The issues identified across the codebase fall into two distinct categories:
 | **B23 (B4)** | **Temperature truncation (`toInt()` vs `roundToInt()`)** | **Early** (WeatherManager) | Low | Fixed |
 | **B24 (B5)** | **Rain forecast reports "Raining now" with 0mm precipitation** | **New** (WeatherManager) | Medium | Fixed |
 | **B25 (B6)** | **Bluetooth battery hidden API reflection & offline bonded device display** | **Early** (BatteryTileManager) | Medium | Fixed |
+| **B26** | **Grid deserialization failure silently wipes layout & recovery** | **Early** (Grid Engine) | Critical | Fixed |
+| **B27** | **Settings decoding failures silently reset settings** | **Early** (Settings) | Medium | Fixed |
+| **B28** | **Calendar refreshes race condition overwriting newer results** | **New** (Calendar Tile) | High | Fixed |
+| **B29** | **Calendar date badge doesn't update at midnight** | **New** (Calendar Tile) | Low | Fixed |
+| **B30** | **Shortcut pinning result ignored & accept check** | **Early** (Shortcut Pinning) | Medium | Fixed |
+| **B31** | **Wallpaper decoding memory pressure & downsampling** | **Early** (Wallpaper) | High | Fixed |
+| **B32** | **Wallpaper input stream unclosed leak** | **Early** (Wallpaper) | Medium | Fixed |
+| **B33** | **Theme repository leaves FileInputStream open** | **Early** (Theme) | Medium | Fixed |
+| **B34** | **Redundant startup app scan & concurrent refresh deduplication** | **Early** (AppsManager) | High | Fixed |
+
 
 ---
 
@@ -419,3 +429,15 @@ The issues identified across the codebase fall into two distinct categories:
 - [x] Replace `temp.toInt()` with `temp.roundToInt()` in `WeatherManager.kt`.
 - [x] Enforce actual precipitation threshold ($\ge 0.1\text{ mm}$) for "Raining now" status in `WeatherManager.kt`.
 - [x] Read Bluetooth battery from broadcast extras without reflection and check active audio profile connection (`BatteryTileManager.kt`).
+
+### Phase 5: Storage Corruption Recovery, Concurrency & Resource Safety (B26–B34)
+- [x] **B26 (Grid Recovery):** Implement element-by-element recovery for partially corrupted grid JSON and guard against regenerating user layout on transient empty reads (`AppsManagerDataSourceImpl.kt`, `UpdateAppListUseCase.kt`).
+- [x] **B27 (Settings Recovery):** Preserve recoverable transparency and color settings on partial JSON decoding failure with safe in-memory fallback (`SettingsRepositoryImpl.kt`).
+- [x] **B28 (Calendar Concurrency):** Cancel obsolete refresh jobs and stamp queries with monotonic version sequence to prevent out-of-order event overwrites (`CalendarEventManager.kt`).
+- [x] **B29 (Midnight Date Badge):** Key calendar date badge composable to minute/day timestamps and register dynamic date refresh (`AppleCalendarContent.kt`).
+- [x] **B30 (Shortcut Pinning Result):** Verify `addShortcutToGridUseCase` result and safely invoke `pinItemRequest.accept()` with failure toast handling (`PinShortcutActivity.kt`).
+- [x] **B31 (Wallpaper Downsampling):** Downsample large wallpaper bitmaps using `inSampleSize` matching display metrics before processing (`StoreWallpaperPickedUseCase.kt`).
+- [x] **B32 (Wallpaper Stream Safety):** Wrap all wallpaper `ContentResolver` input streams in `.use { ... }` blocks to prevent descriptor leaks (`StoreWallpaperPickedUseCase.kt`).
+- [x] **B33 (Theme Stream & Memory):** Wrap theme wallpaper `FileInputStream` in `.use { ... }` and downsample to $\le 256\times 256$ for theme extraction (`ThemeRepositoryImpl.kt`).
+- [x] **B34 (Startup Scan Deduplication):** Centralize startup app scanning in `UpdateAppListUseCase` and deduplicate in-flight scans with mutex and deferred async jobs (`AppsManagerImpl.kt`, `MainActivity.kt`).
+

@@ -12,7 +12,10 @@ import android.os.Build
 import android.widget.Toast
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import tgo1014.gridlauncher.domain.AppIconManager
 import tgo1014.gridlauncher.domain.AppsManager
 import tgo1014.gridlauncher.domain.AppsManagerDataSource
@@ -32,11 +35,12 @@ class AppsManagerImpl @Inject constructor(
     override val installedAppsFlow = appsManagerDataSource.installedAppsList
     override val homeGridFlow = appsManagerDataSource.homeGridFlow
 
-    init {
-        scope.launch {
-            runCatching { updateAppsList() }.onFailure { it.printStackTrace() }
-        }
-    }
+    private val scanMutex = Mutex()
+    @Volatile
+    private var inFlightScan: Deferred<Unit>? = null
+
+    // Startup scanning is centralized in UpdateAppListUseCase (invoked by MainActivity)
+    // to avoid redundant concurrent package scanning on startup.
 
     override fun openApp(app: App) {
         runCatching {
@@ -78,7 +82,24 @@ class AppsManagerImpl @Inject constructor(
     override suspend fun setGrid(grid: List<GridItem>) = appsManagerDataSource.setGrid(grid)
 
     override suspend fun updateAppsList() {
-        appsManagerDataSource.setAppList(fetchAllApps())
+        val job = scanMutex.withLock {
+            val running = inFlightScan
+            if (running != null && running.isActive) {
+                running
+            } else {
+                scope.async {
+                    try {
+                        val apps = fetchAllApps()
+                        appsManagerDataSource.setAppList(apps)
+                    } finally {
+                        scanMutex.withLock {
+                            inFlightScan = null
+                        }
+                    }
+                }.also { inFlightScan = it }
+            }
+        }
+        job.await()
     }
 
     override fun uninstallApp(app: App) {

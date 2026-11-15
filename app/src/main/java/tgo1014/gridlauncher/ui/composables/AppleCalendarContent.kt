@@ -37,11 +37,8 @@ fun AppleCalendarContent(
     modifier: Modifier = Modifier,
     maxEvents: Int = 2
 ) {
-    val (dayOfWeek, dayOfMonth) = remember {
-        val now = Calendar.getInstance()
-        val dow = SimpleDateFormat("EEE", Locale.getDefault()).format(now.time).uppercase()
-        val dom = SimpleDateFormat("d", Locale.getDefault()).format(now.time)
-        dow to dom
+    val (dayOfWeek, dayOfMonth) = remember(calendarEvents, System.currentTimeMillis() / 60_000L) {
+        getCalendarDateBadge()
     }
 
     val appleRed = Color(0xFFFF3B30)
@@ -175,4 +172,15 @@ fun AppleCalendarContent(
             }
         }
     }
+}
+
+fun getCalendarDateBadge(calendar: Calendar = Calendar.getInstance()): Pair<String, String> {
+    val dow = SimpleDateFormat("EEE", Locale.getDefault()).format(calendar.time).uppercase()
+    val dom = SimpleDateFormat("d", Locale.getDefault()).format(calendar.time)
+    return dow to dom
+}
+
+fun getCalendarDateBadge(timeInMillis: Long): Pair<String, String> {
+    val cal = Calendar.getInstance().apply { this.timeInMillis = timeInMillis }
+    return getCalendarDateBadge(cal)
 }

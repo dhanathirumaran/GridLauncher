@@ -2,6 +2,7 @@ package tgo1014.gridlauncher.domain.usecases.wallpaper
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -23,10 +24,14 @@ class StoreWallpaperPickedUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(uri: Uri) = runCatching {
         withContext(Dispatchers.IO) {
-            val inputStream = context.contentResolver.openInputStream(uri)
-            val drawable = Drawable.createFromStream(inputStream, uri.toString())
+            val metrics = context.resources.displayMetrics
+            val reqWidth = metrics.widthPixels.coerceAtLeast(1080)
+            val reqHeight = metrics.heightPixels.coerceAtLeast(1920)
+
+            val bitmap = decodeSampledBitmapFromUri(uri, reqWidth, reqHeight)
+                ?: decodeDrawableBitmapFromUri(uri)
                 ?: return@withContext
-            val bitmap = drawableToBitmap(drawable)
+
             val file = saveBitmapAndGet(bitmap)
             val settings = settingsRepository.tileSettingsFlow.first()
             settingsRepository.updateSettings(
@@ -34,6 +39,32 @@ class StoreWallpaperPickedUseCase @Inject constructor(
             )
         }
     }.onFailure(::println)
+
+    private fun decodeSampledBitmapFromUri(uri: Uri, reqWidth: Int, reqHeight: Int): Bitmap? {
+        val options = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        context.contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, options)
+        } ?: return null
+
+        if (options.outWidth <= 0 || options.outHeight <= 0) return null
+
+        options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
+        options.inJustDecodeBounds = false
+        options.inPreferredConfig = Bitmap.Config.ARGB_8888
+
+        return context.contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, options)
+        }
+    }
+
+    private fun decodeDrawableBitmapFromUri(uri: Uri): Bitmap? {
+        return context.contentResolver.openInputStream(uri)?.use { inputStream ->
+            val drawable = Drawable.createFromStream(inputStream, uri.toString()) ?: return null
+            drawableToBitmap(drawable)
+        }
+    }
 
     private fun saveBitmapAndGet(bitmap: Bitmap): File {
         bitmap.saveToFile(context.wallpaperFile)
@@ -50,8 +81,8 @@ class StoreWallpaperPickedUseCase @Inject constructor(
             drawable.bitmap
         } else {
             val bitmap = Bitmap.createBitmap(
-                drawable.intrinsicWidth,
-                drawable.intrinsicHeight,
+                drawable.intrinsicWidth.coerceAtLeast(1),
+                drawable.intrinsicHeight.coerceAtLeast(1),
                 Bitmap.Config.ARGB_8888
             )
             val canvas = Canvas(bitmap)
@@ -62,4 +93,20 @@ class StoreWallpaperPickedUseCase @Inject constructor(
         return bitmap
     }
 
+    companion object {
+        fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+            val (height: Int, width: Int) = options.outHeight to options.outWidth
+            var inSampleSize = 1
+
+            if (height > reqHeight || width > reqWidth) {
+                val halfHeight: Int = height / 2
+                val halfWidth: Int = width / 2
+
+                while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
+                    inSampleSize *= 2
+                }
+            }
+            return inSampleSize.coerceAtLeast(1)
+        }
+    }
 }

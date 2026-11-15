@@ -95,9 +95,12 @@ class MainActivity : ComponentActivity() {
         checkAndRequestSmartTilePermissions()
     }
 
+    private var updateAppListJob: kotlinx.coroutines.Job? = null
+
     override fun onResume() {
         super.onResume()
-        lifecycleScope.launch { updateAppListUseCase() }
+        updateAppListJob?.cancel()
+        updateAppListJob = lifecycleScope.launch { updateAppListUseCase() }
         calendarEventManager.refresh()
         tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager.sync()
     }

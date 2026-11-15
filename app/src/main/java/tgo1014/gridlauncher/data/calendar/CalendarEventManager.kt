@@ -17,13 +17,16 @@ import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Date
 import java.util.TimeZone
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -72,6 +75,8 @@ class CalendarEventManager @Inject constructor(
     val hasPermission = _hasPermission.asStateFlow()
 
     private var isObserverRegistered = false
+    private var refreshJob: Job? = null
+    private val queryVersion = AtomicLong(0)
 
     private val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean, uri: Uri?) {
@@ -116,10 +121,12 @@ class CalendarEventManager @Inject constructor(
         ) == PackageManager.PERMISSION_GRANTED
     }
 
+    @Synchronized
     fun refresh() {
         val granted = hasPermission()
         _hasPermission.value = granted
         if (!granted) {
+            refreshJob?.cancel()
             _events.value = emptyList()
             rawTodayEvents = emptyList()
             return
@@ -127,8 +134,10 @@ class CalendarEventManager @Inject constructor(
 
         registerObserverIfNeeded()
 
-        scope.launch {
-            queryTodayEvents()
+        val version = queryVersion.incrementAndGet()
+        refreshJob?.cancel()
+        refreshJob = scope.launch {
+            queryTodayEvents(version)
         }
     }
 
@@ -153,7 +162,7 @@ class CalendarEventManager @Inject constructor(
         }
     }
 
-    private fun queryTodayEvents() {
+    private fun queryTodayEvents(version: Long) {
         try {
             val now = System.currentTimeMillis()
             val calendar = Calendar.getInstance().apply {
@@ -251,8 +260,10 @@ class CalendarEventManager @Inject constructor(
             val sorted = eventList.sortedWith(
                 compareBy<CalendarEvent> { !it.isAllDay }.thenBy { it.startTime }
             )
-            rawTodayEvents = sorted
-            purgeExpiredEvents()
+            if (version == queryVersion.get() && scope.coroutineContext.isActive) {
+                rawTodayEvents = sorted
+                purgeExpiredEvents()
+            }
         } catch (e: Exception) {
             // Guard against SecurityException or SQLite errors
         }

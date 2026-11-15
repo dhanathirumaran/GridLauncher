@@ -1,5 +1,6 @@
 package tgo1014.gridlauncher.data
 
+import android.graphics.BitmapFactory
 import android.graphics.drawable.Drawable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -75,9 +76,28 @@ class ThemeRepositoryImpl @Inject constructor(
 
     private fun imageBitmapFromFile(file: File): ImageBitmap? {
         return try {
-            val inputStream = FileInputStream(file)
-            val drawable = Drawable.createFromStream(inputStream, file.name)
-            drawable?.toBitmap()?.asImageBitmap()
+            val options = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            BitmapFactory.decodeFile(file.absolutePath, options)
+            if (options.outWidth > 0 && options.outHeight > 0) {
+                // Downsample to max ~256x256 for color extraction to save memory
+                val maxDim = maxOf(options.outWidth, options.outHeight)
+                var sampleSize = 1
+                while (maxDim / sampleSize > 256) {
+                    sampleSize *= 2
+                }
+                options.inSampleSize = sampleSize
+                options.inJustDecodeBounds = false
+                FileInputStream(file).use { stream ->
+                    BitmapFactory.decodeStream(stream, null, options)?.asImageBitmap()
+                }
+            } else {
+                FileInputStream(file).use { inputStream ->
+                    val drawable = Drawable.createFromStream(inputStream, file.name)
+                    drawable?.toBitmap()?.asImageBitmap()
+                }
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             null
