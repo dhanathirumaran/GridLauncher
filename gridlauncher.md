@@ -13,25 +13,30 @@ The issues identified across the codebase fall into two distinct categories:
 
 | ID | Issue Description | Origin | Impact | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **B01** | **Layout corruption while media plays** | **New** (Media Tile) | Critical | Pending Fix |
-| **B02** | **Media tile overlaps straddling tiles** | **New** (Media Tile) | High | Pending Fix |
-| **B03** | **Media tile selectable in edit mode** | **New** (Media Tile) | Medium | Pending Fix |
-| **B04** | **Wide Calendar tile hijacks app launch** | **New** (Calendar Tile) | High | Pending Fix |
-| **B05** | **All-day events on wrong day in UTC+ zones** | **New** (Calendar Tile) | High | Pending Fix |
-| **B06** | **"Missed calls" parsed as caller name** | **New** (Missed Call Tile) | Medium | Pending Fix |
-| **B07** | **Any dialer notification triggers missed-call layout** | **New** (Missed Call Tile) | High | Pending Fix |
-| **B08** | **Media listener never starts if permission granted post-launch** | **New** (Media Tile) | High | Pending Fix |
-| **B09** | **Weather condition icons and codes mismatch** | **Early** (Smart Tile) | Medium | Pending Fix |
-| **B10** | **Fragile weather network fetching & concurrency** | **Early** (Weather Manager) | Medium | Pending Fix |
-| **B11** | **Step counter false "No Sensor" & missing midnight rollover** | **Early** (Step Counter) | High | Pending Fix |
-| **B12** | **Stale calendar events & hardcoded 12h time** | **New** (Calendar Tile) | Medium | Pending Fix |
-| **B13** | **Notification counts double & unthrottled sync** | **New** (Live Notifications) | High | Pending Fix |
-| **B14** | **UpdateAppListUseCase marks setup done on failure** | **Early** (Grid Engine) | High | Pending Fix |
-| **B15** | **Cloud backup restore drops smart tiles** | **Early** (Backup Config) | High | Pending Fix |
-| **B16** | **Media player progress bar remains stationary** | **New** (Media Tile) | Medium | Pending Fix |
-| **B17** | **Placeholder Search icon used for media & weather** | **New & Early** | Low | Pending Fix |
-| **B18** | **Full grid recomposition on any notification update** | **New** (Live Notifications) | Medium | Pending Fix |
-| **B19** | **Default launcher prompt marked asked before launch** | **Early** (MainActivity) | Medium | Pending Fix |
+| **B01** | **Layout corruption while media plays** | **New** (Media Tile) | Critical | Fixed (`b9a56c5`) |
+| **B02** | **Media tile overlaps straddling tiles** | **New** (Media Tile) | High | Fixed (`b9a56c5`) |
+| **B03** | **Media tile selectable in edit mode** | **New** (Media Tile) | Medium | Fixed (`b9a56c5`) |
+| **B04** | **Wide Calendar tile hijacks app launch** | **New** (Calendar Tile) | High | Fixed (`b9a56c5`) |
+| **B05** | **All-day events on wrong day in UTC+ zones** | **New** (Calendar Tile) | High | Fixed (`b9a56c5`) |
+| **B06** | **"Missed calls" parsed as caller name** | **New** (Missed Call Tile) | Medium | Fixed (`b9a56c5`) |
+| **B07** | **Any dialer notification triggers missed-call layout** | **New** (Missed Call Tile) | High | Fixed (`b9a56c5`) |
+| **B08** | **Media listener never starts if permission granted post-launch** | **New** (Media Tile) | High | Fixed (`b9a56c5`) |
+| **B09** | **Weather condition icons and codes mismatch** | **Early** (Smart Tile) | Medium | Fixed (`b9a56c5`) |
+| **B10** | **Fragile weather network fetching & concurrency** | **Early** (Weather Manager) | Medium | Fixed (`b9a56c5`) |
+| **B11** | **Step counter false "No Sensor" & missing midnight rollover** | **Early** (Step Counter) | High | Fixed (`b9a56c5`) |
+| **B12** | **Stale calendar events & hardcoded 12h time** | **New** (Calendar Tile) | Medium | Fixed (`b9a56c5`) |
+| **B13** | **Notification counts double & unthrottled sync** | **New** (Live Notifications) | High | Fixed (`b9a56c5`) |
+| **B14** | **UpdateAppListUseCase marks setup done on failure** | **Early** (Grid Engine) | High | Fixed (`b9a56c5`) |
+| **B15** | **Cloud backup restore drops smart tiles** | **Early** (Backup Config) | High | Fixed (`b9a56c5`) |
+| **B16** | **Media player progress bar remains stationary** | **New** (Media Tile) | Medium | Fixed (`b9a56c5`) |
+| **B17** | **Placeholder Search icon used for media & weather** | **New & Early** | Low | Fixed (`b9a56c5`) |
+| **B18** | **Full grid recomposition on any notification update** | **New** (Live Notifications) | Medium | Fixed (`b9a56c5`) |
+| **B19** | **Default launcher prompt marked asked before launch** | **Early** (MainActivity) | Medium | Fixed (`b9a56c5`) |
+| **B20 (B1)** | **Battery wattage trickle-charge heuristic & full battery status** | **Early** (BatteryTileManager) | High | Fixed |
+| **B21 (B2)** | **Step counter discards early morning steps on day rollover** | **Early** (StepCounterManager) | High | Fixed |
+| **B22 (B3)** | **Step counter drops steps between boot and first event after reboot** | **Early** (StepCounterManager) | High | Fixed |
+| **B23 (B4)** | **Temperature truncation (`toInt()` vs `roundToInt()`)** | **Early** (WeatherManager) | Low | Fixed |
+| **B24 (B5)** | **Rain forecast reports "Raining now" with 0mm precipitation** | **New** (WeatherManager) | Medium | Fixed |
 
 ---
 
@@ -194,6 +199,19 @@ The issues identified across the codebase fall into two distinct categories:
 - **Fix Steps:**
   1. Pass only the specific app's notification list into `GridTile` from `TileLayout`, or use `remember(pkg) { derivedStateOf { notificationsMap[pkg] } }`.
 
+### B24 (B5). Rain Forecast Reports "Raining now" with 0mm Precipitation
+- **Origin:** **New** (Introduced with rain forecast summary in commit `ebd1d2e`).
+- **File:** [`WeatherManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/smarttile/WeatherManager.kt)
+- **Root Cause:**
+  In `calculateNextRainSummary`, `val isRainingNow = probabilities[0] >= 40 || precipitations[0] >= 0.2`.
+  When probability is 40% but current precipitation is $0.0\text{ mm}$, `probabilities[0] >= 40` evaluates to `true`. The smart tile displays "Raining now" even when there is zero precipitation.
+- **Fix Steps:**
+  1. "Raining now" must require actual precipitation ($\ge 0.1\text{ mm}$):
+     ```kotlin
+     val isRainingNow = precipitations[0] >= 0.1 && probabilities[0] >= 30
+     ```
+  2. If `precipitations[0] < 0.1`, check upcoming hours for rain and display "Rain expected ~X PM" or "No rain expected".
+
 ---
 
 ## 3. Deep Dive: Early Architectural Bugs
@@ -277,28 +295,112 @@ The issues identified across the codebase fall into two distinct categories:
   1. Set `HAS_ASKED_DEFAULT_LAUNCHER = true` only after `startActivity` succeeds.
   2. Provide fallback to `RoleManager.createRequestRoleIntent(RoleManager.ROLE_HOME)` on Android 10+.
 
+### B20 (B1). Battery Charging Wattage Heuristic Miscalculates Trickle Charge & Full Battery Status
+- **Origin:** **Early** (Present since initial implementation of `BatteryTileManager.kt` in commit `47dc046`).
+- **File:** [`BatteryTileManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/smarttile/BatteryTileManager.kt)
+- **Root Cause:**
+  1. Line 60: `val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL`. A fully charged phone (100%) on the charger is marked `isCharging = true`.
+  2. Line 71: `val currentA = if (abs(currentUa) > 50_000) abs(currentUa) / 1_000_000f else abs(currentUa) / 1_000f`.
+     Android `BatteryManager.BATTERY_PROPERTY_CURRENT_NOW` is defined in microamperes ($\mu\text{A}$). When a device trickle-charges or rests at 100%, current drops below $50\text{ mA}$ (e.g. $30\,000\ \mu\text{A} = 30\text{ mA}$). Because $30\,000 < 50\,000$, the code executes the `else` branch: `30,000 / 1,000f = 30.0` Amperes!
+     At $4.2\text{ V}$, this yields $4.2 \times 30 = 126\text{ W}$, which clamps to $120\text{ W}$.
+     Consequently, a fully charged phone on the charger displays "120W Charging".
+- **Fix Steps:**
+  1. Do not treat `BATTERY_STATUS_FULL` as actively charging wattage: `val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING`.
+  2. Fix current unit heuristic: Android standard is $\mu\text{A}$. If `abs(currentUa) > 2000`, treat as $\mu\text{A}$ (`/ 1_000_000f`); only if `abs(currentUa) <= 2000` (some legacy OEMs report mA), treat as $\text{mA}$ (`/ 1_000f`).
+  3. If computed wattage is below $1\text{ W}$ (trickle charging), set `watts = 0` so the UI cleanly displays "Charging" or "Full" without bogus high wattage.
+
+### B21 (B2). Step Counter Discards Early Morning Steps on Day Rollover
+- **Origin:** **Early** (Step counter calibration logic added in commit `47331cf`).
+- **File:** [`StepCounterManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/smarttile/StepCounterManager.kt)
+- **Root Cause:**
+  In `updateSteps`:
+  ```kotlin
+  if (!isInitialized || savedDay != todayStr) {
+      prefs.edit()
+          .putString("LAST_DAY", todayStr)
+          .putInt("BASELINE_STEPS", raw)
+          ...
+  }
+  ```
+  `BASELINE_STEPS` is calibrated to the `raw` sensor value of the **first event received on the new day**. If the user walks 2,000 steps between midnight and the first event (e.g. walking from 6:00 AM to 8:00 AM before turning on the screen or before the sensor batches an event), `raw` has already advanced by 2,000. Setting `BASELINE_STEPS = raw` discards those 2,000 early morning steps completely. Furthermore, the first step taken after midnight is lost.
+- **Fix Steps:**
+  1. When rolling over to a new day (`savedDay != todayStr`), if `lastRaw` from yesterday is valid and the device has not rebooted (`raw >= lastRaw`), set `BASELINE_STEPS = lastRaw` (the reading at the close of yesterday), not `raw`.
+  2. This guarantees that all steps taken since yesterday's final recorded step (including early morning walking before the first event) count toward today's step count: `todaySteps = raw - lastRaw`.
+
+### B22 (B3). Step Counter Drops Steps Taken Between Boot and First Event After Reboot
+- **Origin:** **Early** (Reboot detection logic added in commit `47331cf`).
+- **File:** [`StepCounterManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/smarttile/StepCounterManager.kt)
+- **Root Cause:**
+  In `updateSteps`:
+  ```kotlin
+  if (lastRaw != -1 && raw < lastRaw) {
+      val stepsBeforeReboot = (lastRaw - baseline).coerceAtLeast(0)
+      preReboot += stepsBeforeReboot
+      baseline = raw
+      prefs.edit().putInt("BASELINE_STEPS", baseline)...
+  }
+  ```
+  `Sensor.TYPE_STEP_COUNTER` counts steps since the device booted and resets to 0 on reboot.
+  If the phone is rebooted and the user walks 150 steps before GridLauncher receives its first sensor callback, `raw = 150`.
+  The code detects reboot (`raw < lastRaw`), accumulates `stepsBeforeReboot`, but then sets `baseline = raw` (`150`).
+  Then `currentBootSteps = (raw - baseline) = 150 - 150 = 0`.
+  The 150 steps walked between boot and the first event are dropped.
+- **Fix Steps:**
+  1. On reboot detection (`raw < lastRaw`), set `baseline = 0`, because the hardware counter began counting from 0 at kernel startup:
+     ```kotlin
+     if (lastRaw != -1 && raw < lastRaw) {
+         val stepsBeforeReboot = (lastRaw - baseline).coerceAtLeast(0)
+         preReboot += stepsBeforeReboot
+         baseline = 0
+         prefs.edit()
+             .putInt("PRE_REBOOT_TODAY_STEPS", preReboot)
+             .putInt("BASELINE_STEPS", 0)
+             .apply()
+     }
+     ```
+  2. Then `currentBootSteps = raw - 0 = 150`, correctly preserving all steps walked since reboot.
+
+### B23 (B4). Temperature String Truncates Instead of Rounding
+- **Origin:** **Early** (Weather fetching logic added in commit `47dc046`).
+- **File:** [`WeatherManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/smarttile/WeatherManager.kt)
+- **Root Cause:**
+  Line 144: `val tempStr = "${temp.toInt()}°"`.
+  Kotlin's `Double.toInt()` truncates toward zero. A temperature of $28.9^\circ\text{C}$ displays as $28^\circ\text{C}$, and $-0.5^\circ\text{C}$ displays as $0^\circ\text{C}$.
+- **Fix Steps:**
+  1. Use `kotlin.math.roundToInt()`:
+     ```kotlin
+     val tempStr = "${temp.roundToInt()}°"
+     ```
+
 ---
 
 ## 4. Implementation & Verification Roadmap
 
 ### Phase 1: High-Priority Dynamic Grid & Media Player Fixes (B01, B02, B03, B08, B16)
-- [ ] Implement collision-free seam detection in `DynamicGridTransformer`.
-- [ ] Add inverse coordinate translation in `HomeScreenViewModel.onTileEvent`.
-- [ ] Add ID `-999` guards across click, long click, and drag handlers.
-- [ ] Auto-retry `MediaPlaybackManager.registerListener()` on resume and notification connection.
-- [ ] Add elapsed wall-clock ticker in `LiveMediaTileContent` for real-time progress bar movement.
+- [x] Implement collision-free seam detection in `DynamicGridTransformer`.
+- [x] Add inverse coordinate translation in `HomeScreenViewModel.onTileEvent`.
+- [x] Add ID `-999` guards across click, long click, and drag handlers.
+- [x] Auto-retry `MediaPlaybackManager.registerListener()` on resume and notification connection.
+- [x] Add elapsed wall-clock ticker in `LiveMediaTileContent` for real-time progress bar movement.
 
 ### Phase 2: Live Notifications, Phone & Calendar Hardening (B04, B05, B06, B07, B12, B13, B18)
-- [ ] Always launch calendar app on calendar app tile click.
-- [ ] Fix UTC all-day event day comparison for UTC+ time zones.
-- [ ] Fix "Missed calls" caller name parsing and dialer notification filtering.
-- [ ] Ignore notification group summaries and debounce IPC updates.
-- [ ] Scope notification observers to avoid full-grid recomposition.
-- [ ] Register midnight and time-change broadcast receivers for calendar and step tiles.
+- [x] Always launch calendar app on calendar app tile click.
+- [x] Fix UTC all-day event day comparison for UTC+ time zones.
+- [x] Fix "Missed calls" caller name parsing and dialer notification filtering.
+- [x] Ignore notification group summaries and debounce IPC updates.
+- [x] Scope notification observers to avoid full-grid recomposition.
+- [x] Register midnight and time-change broadcast receivers for calendar and step tiles.
 
 ### Phase 3: Sensor, Weather, Grid Storage & System Stability (B09, B10, B11, B14, B15, B17, B19)
-- [ ] Fix WMO weather code mapping and move throttle inside mutex.
-- [ ] Preserve `isSupported = (stepSensor != null)` in `StepCounterManager`.
-- [ ] Commit setup prefs only after grid database writes succeed.
-- [ ] Exclude `SMART_TILES_PREFS.xml` from cloud backups.
-- [ ] Commit default launcher preference only after successful intent launch.
+- [x] Fix WMO weather code mapping and move throttle inside mutex.
+- [x] Preserve `isSupported = (stepSensor != null)` in `StepCounterManager`.
+- [x] Commit setup prefs only after grid database writes succeed.
+- [x] Exclude `SMART_TILES_PREFS.xml` from cloud backups.
+- [x] Commit default launcher preference only after successful intent launch.
+
+### Phase 4: Sensor, Telemetry & Weather Precision (B20–B24 / B1–B5)
+- [x] Fix battery wattage microampere heuristic and exclude `BATTERY_STATUS_FULL` from active wattage (`BatteryTileManager.kt`).
+- [x] Preserve early-morning steps on day rollover by anchoring `BASELINE_STEPS` to yesterday's `lastRaw` (`StepCounterManager.kt`).
+- [x] Set `baseline = 0` upon reboot detection to preserve steps walked prior to first event (`StepCounterManager.kt`).
+- [x] Replace `temp.toInt()` with `temp.roundToInt()` in `WeatherManager.kt`.
+- [x] Enforce actual precipitation threshold ($\ge 0.1\text{ mm}$) for "Raining now" status in `WeatherManager.kt`.

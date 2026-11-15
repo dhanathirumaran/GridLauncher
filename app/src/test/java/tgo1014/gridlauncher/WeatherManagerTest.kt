@@ -80,4 +80,38 @@ class WeatherManagerTest {
         val result = WeatherManager.calculateNextRainSummary(emptyList(), emptyList(), emptyList())
         assertEquals("No rain expected", result)
     }
+
+    @Test
+    fun calculateNextRainSummary_whenProbabilityHighButZeroPrecipitation_doesNotReportRainingNow() {
+        val times = listOf(
+            "2026-11-15T12:00",
+            "2026-11-15T13:00"
+        )
+        val probs = listOf(40, 10)
+        val precips = listOf(0.0, 0.0)
+
+        val result = WeatherManager.calculateNextRainSummary(times, probs, precips)
+        assertEquals("No rain expected", result)
+    }
+
+    @Test
+    fun calculateNextRainSummary_whenZeroPrecipNowButRainLater_reportsLaterRainNotRainingNow() {
+        val times = listOf(
+            "2026-11-15T12:00",
+            "2026-11-15T13:00"
+        )
+        val probs = listOf(40, 80)
+        val precips = listOf(0.0, 1.5)
+
+        val result = WeatherManager.calculateNextRainSummary(times, probs, precips)
+        assertEquals("Rain at 1 PM (80%)", result)
+    }
+
+    @Test
+    fun formatTemperature_roundsProperly() {
+        assertEquals("29°", WeatherManager.formatTemperature(28.9))
+        assertEquals("28°", WeatherManager.formatTemperature(28.1))
+        assertEquals("0°", WeatherManager.formatTemperature(-0.4))
+        assertEquals("-1°", WeatherManager.formatTemperature(-0.6))
+    }
 }

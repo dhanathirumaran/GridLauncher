@@ -57,7 +57,7 @@ class BatteryTileManager @Inject constructor(
         val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
         val status = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
-        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING
 
         val percent = if (level >= 0 && scale > 0) (level * 100) / scale else _state.value.phoneLevel
 
@@ -66,14 +66,7 @@ class BatteryTileManager @Inject constructor(
             val voltageMv = batteryIntent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1) ?: -1
             val bm = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
             val currentUa = bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW) ?: 0
-            if (voltageMv > 0 && currentUa != 0) {
-                val voltageV = voltageMv / 1000f
-                val currentA = if (abs(currentUa) > 50_000) abs(currentUa) / 1_000_000f else abs(currentUa) / 1_000f
-                val calculatedWatts = voltageV * currentA
-                if (calculatedWatts > 0) {
-                    watts = calculatedWatts.roundToInt().coerceIn(1, 120)
-                }
-            }
+            watts = calculateChargingWatts(status, voltageMv, currentUa)
         }
 
         // Check for connected Bluetooth devices (headphones, keyboards, etc.)
@@ -114,5 +107,25 @@ class BatteryTileManager @Inject constructor(
             val result = method.invoke(device) as? Int
             if (result != null && result in 0..100) result else null
         }.getOrNull()
+    }
+
+    companion object {
+        fun calculateChargingWatts(status: Int, voltageMv: Int, currentUa: Int): Int {
+            if (status != BatteryManager.BATTERY_STATUS_CHARGING) {
+                return 0
+            }
+            if (voltageMv <= 0 || currentUa == 0) {
+                return 0
+            }
+            val voltageV = voltageMv / 1000f
+            // Android standard BATTERY_PROPERTY_CURRENT_NOW is in microamperes (µA).
+            val currentA = abs(currentUa) / 1_000_000f
+            val calculatedWatts = voltageV * currentA
+            return if (calculatedWatts >= 1.0f) {
+                calculatedWatts.roundToInt().coerceIn(1, 120)
+            } else {
+                0
+            }
+        }
     }
 }

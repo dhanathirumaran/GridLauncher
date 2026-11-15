@@ -129,6 +129,15 @@ class StepCounterManager @Inject constructor(
         val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
         val savedDay = prefs.getString("LAST_DAY", "")
         if (savedDay != todayStr) {
+            val isInitialized = prefs.getBoolean("INITIALIZED", false)
+            if (isInitialized) {
+                val lastRaw = prefs.getInt("LAST_RAW_STEPS", 0)
+                prefs.edit()
+                    .putString("LAST_DAY", todayStr)
+                    .putInt("BASELINE_STEPS", lastRaw)
+                    .putInt("PRE_REBOOT_TODAY_STEPS", 0)
+                    .apply()
+            }
             _todaySteps.value = 0
             _stepCounterState.value = _stepCounterState.value.copy(steps = 0)
             return
@@ -154,39 +163,69 @@ class StepCounterManager @Inject constructor(
         val savedDay = prefs.getString("LAST_DAY", "")
         val lastRaw = prefs.getInt("LAST_RAW_STEPS", -1)
         val isInitialized = prefs.getBoolean("INITIALIZED", false)
+        val currentBaseline = prefs.getInt("BASELINE_STEPS", raw)
+        val currentPreReboot = prefs.getInt("PRE_REBOOT_TODAY_STEPS", 0)
 
-        if (!isInitialized || savedDay != todayStr) {
-            // First install or new day: calibrate baseline so today's steps start at 0
-            prefs.edit()
-                .putString("LAST_DAY", todayStr)
-                .putInt("BASELINE_STEPS", raw)
-                .putInt("PRE_REBOOT_TODAY_STEPS", 0)
-                .putInt("LAST_RAW_STEPS", raw)
-                .putBoolean("INITIALIZED", true)
-                .apply()
-            _todaySteps.value = 0
-            _stepCounterState.value = _stepCounterState.value.copy(steps = 0)
-            return
+        val result = computeStepsOnSensorEvent(
+            raw = raw,
+            lastRaw = lastRaw,
+            currentBaseline = currentBaseline,
+            currentPreReboot = currentPreReboot,
+            isNewDay = (savedDay != todayStr),
+            isInitialized = isInitialized
+        )
+
+        prefs.edit()
+            .putString("LAST_DAY", todayStr)
+            .putInt("BASELINE_STEPS", result.baseline)
+            .putInt("PRE_REBOOT_TODAY_STEPS", result.preReboot)
+            .putInt("LAST_RAW_STEPS", raw)
+            .putBoolean("INITIALIZED", true)
+            .apply()
+
+        _todaySteps.value = result.todaySteps
+        _stepCounterState.value = _stepCounterState.value.copy(steps = result.todaySteps)
+    }
+
+    companion object {
+        data class StepCalculationResult(
+            val todaySteps: Int,
+            val baseline: Int,
+            val preReboot: Int
+        )
+
+        fun computeStepsOnSensorEvent(
+            raw: Int,
+            lastRaw: Int,
+            currentBaseline: Int,
+            currentPreReboot: Int,
+            isNewDay: Boolean,
+            isInitialized: Boolean
+        ): StepCalculationResult {
+            if (!isInitialized) {
+                return StepCalculationResult(todaySteps = 0, baseline = raw, preReboot = 0)
+            }
+            if (isNewDay) {
+                // If device did not reboot across rollover (raw >= lastRaw), preserve early morning steps
+                // by using yesterday's last recorded raw reading as today's baseline.
+                // If device rebooted (raw < lastRaw), baseline for the new boot is 0.
+                val baseline = if (lastRaw != -1 && raw >= lastRaw) lastRaw else 0
+                val todaySteps = (raw - baseline).coerceAtLeast(0)
+                return StepCalculationResult(todaySteps = todaySteps, baseline = baseline, preReboot = 0)
+            }
+            var preReboot = currentPreReboot
+            var baseline = currentBaseline
+            if (lastRaw != -1 && raw < lastRaw) {
+                // Device rebooted on the same day:
+                // Hardware sensor restarts from 0. Accumulate steps walked prior to reboot,
+                // and set baseline to 0 so steps taken between boot and this first event are preserved.
+                val stepsBeforeReboot = (lastRaw - baseline).coerceAtLeast(0)
+                preReboot += stepsBeforeReboot
+                baseline = 0
+            }
+            val currentBootSteps = (raw - baseline).coerceAtLeast(0)
+            val total = preReboot + currentBootSteps
+            return StepCalculationResult(todaySteps = total, baseline = baseline, preReboot = preReboot)
         }
-
-        // Reboot detection on same day:
-        // Hardware sensor resets to 0 upon device reboot.
-        var preReboot = prefs.getInt("PRE_REBOOT_TODAY_STEPS", 0)
-        var baseline = prefs.getInt("BASELINE_STEPS", raw)
-        if (lastRaw != -1 && raw < lastRaw) {
-            val stepsBeforeReboot = (lastRaw - baseline).coerceAtLeast(0)
-            preReboot += stepsBeforeReboot
-            baseline = raw
-            prefs.edit()
-                .putInt("PRE_REBOOT_TODAY_STEPS", preReboot)
-                .putInt("BASELINE_STEPS", baseline)
-                .apply()
-        }
-
-        prefs.edit().putInt("LAST_RAW_STEPS", raw).apply()
-        val currentBootSteps = (raw - baseline).coerceAtLeast(0)
-        val total = preReboot + currentBootSteps
-        _todaySteps.value = total
-        _stepCounterState.value = _stepCounterState.value.copy(steps = total)
     }
 }

@@ -22,6 +22,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.roundToInt
 
 data class WeatherState(
     val temperature: String = "--°",
@@ -141,7 +142,7 @@ class WeatherManager @Inject constructor(
                 val temp = current.getDouble("temperature_2m")
                 val code = current.getInt("weather_code")
                 val cond = interpretWeatherCode(code)
-                val tempStr = "${temp.toInt()}°"
+                val tempStr = formatTemperature(temp)
 
                 val hourly = json.optJSONObject("hourly")
                 val rainSummary = if (hourly != null) {
@@ -253,8 +254,8 @@ class WeatherManager @Inject constructor(
                 }
             }
 
-            // Check if it is raining currently (index 0)
-            val isRainingNow = probabilities[0] >= 40 || precipitations[0] >= 0.2
+            // Check if it is raining currently (index 0) - requires actual precipitation
+            val isRainingNow = precipitations[0] >= 0.1 && (probabilities[0] >= 30 || precipitations[0] >= 0.2)
             if (isRainingNow) {
                 for (i in 1 until size) {
                     if (probabilities[i] < 30 && precipitations[i] < 0.1) {
@@ -282,5 +283,7 @@ class WeatherManager @Inject constructor(
 
             return "No rain expected"
         }
+
+        fun formatTemperature(temp: Double): String = "${temp.roundToInt()}°"
     }
 }
