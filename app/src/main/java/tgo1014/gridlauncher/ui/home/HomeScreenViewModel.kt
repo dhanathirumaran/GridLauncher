@@ -32,10 +32,12 @@ import tgo1014.gridlauncher.data.calendar.CalendarEventManager
 import tgo1014.gridlauncher.data.smarttile.BatteryTileManager
 import tgo1014.gridlauncher.data.smarttile.CurrencyRateManager
 import tgo1014.gridlauncher.data.smarttile.FlashlightManager
+import tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager
 import tgo1014.gridlauncher.data.smarttile.SamsungFinderHelper
 import tgo1014.gridlauncher.data.smarttile.StepCounterManager
 import tgo1014.gridlauncher.data.smarttile.WeatherManager
 import tgo1014.gridlauncher.data.notification.NotificationRepository
+import tgo1014.gridlauncher.domain.DynamicGridTransformer
 import tgo1014.gridlauncher.domain.usecases.GetAppListUseCase
 import tgo1014.gridlauncher.domain.usecases.ItemGridSizeChangeUseCase
 import tgo1014.gridlauncher.domain.usecases.MoveGridItemUseCase
@@ -74,6 +76,7 @@ class HomeScreenViewModel @Inject constructor(
     private val weatherManager: WeatherManager,
     private val notificationRepository: NotificationRepository,
     private val calendarEventManager: CalendarEventManager,
+    private val mediaPlaybackManager: MediaPlaybackManager,
 ) : ViewModel() {
 
     private var fullAppList: List<App> = emptyList()
@@ -105,6 +108,8 @@ class HomeScreenViewModel @Inject constructor(
         data.copy(calendarEvents = events)
     }.combine(calendarEventManager.hasPermission) { data, hasPerm ->
         data.copy(isCalendarPermissionGranted = hasPerm)
+    }.combine(mediaPlaybackManager.mediaState) { data, media ->
+        data.copy(mediaPlaybackState = media)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SmartTileData())
 
     init {
@@ -230,6 +235,9 @@ class HomeScreenViewModel @Inject constructor(
                 }
                 openCalendarApp()
             }
+            SmartTileType.MEDIA_PLAYER -> {
+                MediaPlaybackManager.openPlayerApp(context)
+            }
             null -> {}
         }
     }
@@ -252,6 +260,7 @@ class HomeScreenViewModel @Inject constructor(
     }
 
     fun onGridItemLongClicked(gridItem: GridItem) {
+        if (gridItem.id == DynamicGridTransformer.MEDIA_TILE_ID) return
         _stateFlow.update { it.copy(itemBeingEdited = gridItem) }
     }
 
@@ -396,7 +405,12 @@ class HomeScreenViewModel @Inject constructor(
                 _stateFlow.update { it.copy(appList = appList) }
             }
             .launchIn(this)
-        appsManager.homeGridFlow
+        combine(
+            appsManager.homeGridFlow,
+            mediaPlaybackManager.mediaState
+        ) { baseGrid, media ->
+            DynamicGridTransformer.computeEffectiveGrid(baseGrid, media.isActive)
+        }
             .onEach { grid -> _stateFlow.update { it.copy(grid = grid) } }
             .launchIn(this)
     }

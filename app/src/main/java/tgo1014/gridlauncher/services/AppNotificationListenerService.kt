@@ -17,21 +17,25 @@ class AppNotificationListenerService : NotificationListenerService() {
         super.onListenerConnected()
         isConnected = true
         syncActiveNotifications()
+        tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager.sync()
     }
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
         isConnected = false
+        tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager.sync()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         super.onNotificationPosted(sbn)
         syncActiveNotifications()
+        tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager.sync()
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         super.onNotificationRemoved(sbn)
         syncActiveNotifications()
+        tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager.sync()
     }
 
     private fun syncActiveNotifications() {

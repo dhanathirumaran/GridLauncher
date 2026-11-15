@@ -20,7 +20,8 @@ enum class SmartTileType {
     BATTERY,
     CURRENCY,
     WEATHER,
-    CALENDAR
+    CALENDAR,
+    MEDIA_PLAYER
 }
 
 @Serializable

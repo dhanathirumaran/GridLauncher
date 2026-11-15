@@ -140,6 +140,9 @@ fun SmartTile(
             }
             Quad("Calendar", SmartTileIcons.Calendar, status, "today")
         }
+        SmartTileType.MEDIA_PLAYER -> {
+            Quad("Now Playing", SmartTileIcons.Search, null, null)
+        }
     }
 
     // Highlighting background for flashlight when ON
@@ -168,6 +171,20 @@ fun SmartTile(
             .then(modifier)
     ) {
         when {
+            // Live Music Player Tile (8x2 dynamic)
+            type == SmartTileType.MEDIA_PLAYER -> {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val smartData = LocalSmartTileData.current
+                LiveMediaTileContent(
+                    mediaState = smartData.mediaPlaybackState,
+                    textColor = contentColor,
+                    onPlayPause = { tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager.playPause() },
+                    onSkipNext = { tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager.skipToNext() },
+                    onSkipPrevious = { tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager.skipToPrevious() },
+                    onOpenApp = { tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager.openPlayerApp(context) }
+                )
+            }
+
             // Apple-style Calendar Tile (4x2 or larger wide tile)
             type == SmartTileType.CALENDAR && item.width >= 4 && item.height >= 2 -> {
                 AppleCalendarContent(
