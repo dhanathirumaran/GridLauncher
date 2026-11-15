@@ -49,6 +49,7 @@ The issues identified across the codebase fall into two distinct categories:
 | **B34** | **Redundant startup app scan & concurrent refresh deduplication** | **Early** (AppsManager) | High | Fixed |
 | **B35** | **Tile flip during scroll suppression & settled state gating** | **Early** (Grid Tile) | Medium | Fixed |
 | **B36** | **Live smart tile & notification data invalidation during scroll** | **New** (Smart Tiles & Live Notifications) | High | Fixed |
+| **B37** | **Haze multi-pass Gaussian blur GPU bottleneck during scroll** | **Early** (Theming & Grid Engine) | High | Fixed |
 
 
 
@@ -445,6 +446,8 @@ The issues identified across the codebase fall into two distinct categories:
 - [x] **B34 (Startup Scan Deduplication):** Centralize startup app scanning in `UpdateAppListUseCase` and deduplicate in-flight scans with mutex and deferred async jobs (`AppsManagerImpl.kt`, `MainActivity.kt`).
 - [x] **B35 (Scroll Tile Flip Suppression):** Gate random tile flip animations behind `LocalIsGridSettled` and debounced scroll detection in `TileLayout`, `GridTile`, `SmartTile`, and `ComposeExtensions` to ensure tiles only flip when the grid is fully settled.
 - [x] **B36 (Live Data Scroll Invalidation Suppression):** Snapshot smart tile and notification data at the beginning of a scroll gesture, freeze updates during scroll (with ~1 Hz throttle for prolonged scrolls), and pause media progress tickers while scrolling (`TileLayout.kt`, `LiveMediaTileContent.kt`).
+- [x] **B37 (Scroll-Aware Frosted Glass Transition):** Automatically swap expensive multi-pass per-frame Haze Gaussian blur for lightweight hardware-accelerated translucent glass during active scroll/fling gestures, restoring full live blur 500ms after settling (`TileLayout.kt`).
+
 
 
 

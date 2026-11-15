@@ -132,17 +132,6 @@ fun TileLayout(
         RoundedCornerShape(tileSettings.cornerRadius)
     }
 
-    // Only apply blur pipeline when transparency/wallpaper is active; otherwise use lightweight clipping
-    val hazeChildModifier = if (tileSettings.isTransparencyEnabled) {
-        Modifier.hazeChild(
-            state = hazeState,
-            style = dynamicHazeStyle,
-            shape = tileShape,
-        )
-    } else {
-        Modifier
-    }
-
     val tableDimensions = remember(gridItemSize) {
         lazyTableDimensions({ gridItemSize }, { gridItemSize })
     }
@@ -165,9 +154,29 @@ fun TileLayout(
         if (isScrolling || itemBeingEdited != null) {
             isSettled = false
         } else {
-            kotlinx.coroutines.delay(1000L)
+            kotlinx.coroutines.delay(500L)
             isSettled = true
         }
+    }
+
+    // Approach 1 (Scroll-Aware Glass Transition):
+    // When settled, apply full rich Gaussian blur via hazeChild.
+    // When actively scrolling or flinging, switch to lightweight hardware-accelerated translucent glass
+    // to achieve buttery-smooth 60/120 FPS scrolling without GPU shader bottleneck.
+    val hazeChildModifier = if (tileSettings.isTransparencyEnabled) {
+        if (isSettled) {
+            Modifier.hazeChild(
+                state = hazeState,
+                style = dynamicHazeStyle,
+                shape = tileShape,
+            )
+        } else {
+            Modifier
+                .clip(tileShape)
+                .background(Color.White.copy(alpha = (tileSettings.tintAlpha * 0.8f).coerceAtLeast(0.12f)))
+        }
+    } else {
+        Modifier
     }
 
     // Live data snapshotting during scroll:
