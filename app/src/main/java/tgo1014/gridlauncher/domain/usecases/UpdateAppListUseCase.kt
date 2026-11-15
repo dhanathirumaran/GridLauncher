@@ -61,6 +61,7 @@ class UpdateAppListUseCase @Inject constructor(
                         }
                     }
                     GridItemType.SHORTCUT, GridItemType.SMART_TILE -> item
+                    GridItemType.WIDGET -> null
                 }
             }
             val compactedGrid = GridPacker.compact(filteredGrid)

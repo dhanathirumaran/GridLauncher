@@ -27,6 +27,7 @@ import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
 import dagger.hilt.android.qualifiers.ApplicationContext
+import tgo1014.gridlauncher.ui.MainActivity
 import tgo1014.gridlauncher.data.smarttile.BatteryTileManager
 import tgo1014.gridlauncher.data.smarttile.CurrencyRateManager
 import tgo1014.gridlauncher.data.smarttile.FlashlightManager
