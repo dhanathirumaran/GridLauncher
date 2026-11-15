@@ -1,55 +1,56 @@
 package tgo1014.gridlauncher
 
+import android.graphics.BitmapFactory
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import tgo1014.gridlauncher.data.AppsManagerDataSourceImpl
 import tgo1014.gridlauncher.data.SettingsRepositoryImpl
-import tgo1014.gridlauncher.domain.models.App
+import tgo1014.gridlauncher.domain.models.TileSettings
 import tgo1014.gridlauncher.domain.usecases.wallpaper.StoreWallpaperPickedUseCase
 import tgo1014.gridlauncher.ui.composables.getCalendarDateBadge
-import tgo1014.gridlauncher.ui.models.GridItem
-import tgo1014.gridlauncher.ui.models.GridItemType
 import java.util.Calendar
 
 class RecoveryAndDeduplicationTest {
 
+    private val json = Json { ignoreUnknownKeys = true }
+
     @Test
-    fun `recoverTileSettings extracts valid transparency fields from partial JSON`() {
+    fun `recoverTileSettings extracts valid fields from partial JSON`() {
         val partialJson = """
             {
-                "weatherTransparency": 0.85,
-                "batteryTransparency": 0.3,
-                "stepCounterTransparency": "invalid_float",
+                "cornerRadius": 16,
+                "tintAlpha": 0.35,
+                "isAppLabelsHidden": true,
                 "unexpectedField": 123
             }
         """.trimIndent()
 
-        val settings = SettingsRepositoryImpl.recoverTileSettings(partialJson)
-        assertEquals(0.85f, settings.weatherTransparency, 0.001f)
-        assertEquals(0.3f, settings.batteryTransparency, 0.001f)
-        // Invalid or missing keys safely fall back to default 0.6f
-        assertEquals(0.6f, settings.stepCounterTransparency, 0.001f)
-        assertEquals(0.6f, settings.calendarTransparency, 0.001f)
+        val settings = SettingsRepositoryImpl.recoverTileSettings(partialJson, json, null)
+        assertEquals(16, settings.cornerRadius)
+        assertEquals(0.35f, settings.tintAlpha, 0.001f)
+        assertTrue(settings.isAppLabelsHidden)
+        // Default fields preserved
+        assertTrue(settings.isTileFlipEnabled)
     }
 
     @Test
-    fun `recoverTileSettings returns default on completely unparseable input`() {
+    fun `recoverTileSettings returns fallback on completely unparseable input`() {
         val corrupted = "{ broken json !! 123 "
-        val settings = SettingsRepositoryImpl.recoverTileSettings(corrupted)
-        assertEquals(0.6f, settings.weatherTransparency, 0.001f)
-        assertEquals(0.6f, settings.batteryTransparency, 0.001f)
+        val fallback = TileSettings(cornerRadius = 24)
+        val settings = SettingsRepositoryImpl.recoverTileSettings(corrupted, json, fallback)
+        assertEquals(24, settings.cornerRadius)
     }
 
     @Test
     fun `recoverGridItems recovers intact items from JSON with corrupted elements`() {
-        // One valid GridItem JSON and one corrupted item inside an array
-        val validItem = """{"app":{"name":"TestApp","packageName":"com.test.app","isSystemApp":false},"itemType":"APP","colSpan":1,"rowSpan":1}"""
+        val validItem = """{"id":1,"app":{"name":"TestApp","packageName":"com.test.app","isSystemApp":false},"itemType":"APP","width":1,"height":1,"x":0,"y":0}"""
         val corruptedItem = """{"corrupted":true, broken}"""
         val arrayJson = "[$validItem, $corruptedItem]"
 
-        val recovered = AppsManagerDataSourceImpl.recoverGridItems(arrayJson)
+        val recovered = AppsManagerDataSourceImpl.recoverGridItems(arrayJson, json)
         assertEquals(1, recovered.size)
         assertEquals("com.test.app", recovered[0].app.packageName)
         assertEquals("TestApp", recovered[0].app.name)
@@ -58,20 +59,29 @@ class RecoveryAndDeduplicationTest {
     @Test
     fun `recoverGridItems returns empty list for non-array string`() {
         val nonArray = "not a json array"
-        val recovered = AppsManagerDataSourceImpl.recoverGridItems(nonArray)
+        val recovered = AppsManagerDataSourceImpl.recoverGridItems(nonArray, json)
         assertTrue(recovered.isEmpty())
     }
 
     @Test
     fun `calculateInSampleSize scales down large dimensions appropriately`() {
-        // When image is smaller than required, sample size is 1
-        assertEquals(1, StoreWallpaperPickedUseCase.calculateInSampleSize(800, 600, 1080, 1920))
+        val smallOptions = BitmapFactory.Options().apply {
+            outWidth = 800
+            outHeight = 600
+        }
+        assertEquals(1, StoreWallpaperPickedUseCase.calculateInSampleSize(smallOptions, 1080, 1920))
 
-        // When image is exactly required, sample size is 1
-        assertEquals(1, StoreWallpaperPickedUseCase.calculateInSampleSize(1080, 1920, 1080, 1920))
+        val exactOptions = BitmapFactory.Options().apply {
+            outWidth = 1080
+            outHeight = 1920
+        }
+        assertEquals(1, StoreWallpaperPickedUseCase.calculateInSampleSize(exactOptions, 1080, 1920))
 
-        // When image is 4x display dimensions (4320x7680), sample size should scale by powers of 2
-        val sampleSize = StoreWallpaperPickedUseCase.calculateInSampleSize(4320, 7680, 1080, 1920)
+        val largeOptions = BitmapFactory.Options().apply {
+            outWidth = 4320
+            outHeight = 7680
+        }
+        val sampleSize = StoreWallpaperPickedUseCase.calculateInSampleSize(largeOptions, 1080, 1920)
         assertTrue(sampleSize >= 4)
     }
 
