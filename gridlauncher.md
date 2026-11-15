@@ -441,3 +441,14 @@ The issues identified across the codebase fall into two distinct categories:
 - [x] **B33 (Theme Stream & Memory):** Wrap theme wallpaper `FileInputStream` in `.use { ... }` and downsample to $\le 256\times 256$ for theme extraction (`ThemeRepositoryImpl.kt`).
 - [x] **B34 (Startup Scan Deduplication):** Centralize startup app scanning in `UpdateAppListUseCase` and deduplicate in-flight scans with mutex and deferred async jobs (`AppsManagerImpl.kt`, `MainActivity.kt`).
 
+---
+
+## 5. Package Identity & Fork Continuity Policy
+
+- **Application ID & Namespace:** `tgo1014.gridlauncher` is **willfully and deliberately preserved** across `app/build.gradle.kts` and `AndroidManifest.xml`.
+- **Rationale:**
+  1. **Data Loss Prevention:** Android partitions SQLite, DataStore, and SharedPreferences by Application ID. Altering the ID wipes existing user grids, custom transparencies, step baselines, and widget placements upon upgrade.
+  2. **In-Place APK Upgrade Continuity:** Users updating from earlier builds or releases can install new APKs directly without needing to uninstall or recreate home screen layouts.
+  3. **Attribution & Lineage:** Upstream assets in `README.md` and package namespace explicitly acknowledge the project's foundation while development and releases remain self-contained at `dhanathirumaran/GridLauncher`.
+
+

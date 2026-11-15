@@ -10,6 +10,9 @@ plugins {
 }
 
 android {
+    // NOTE: namespace and applicationId are willfully and deliberately preserved as "tgo1014.gridlauncher"
+    // to maintain backward compatibility, prevent DataStore/SharedPreferences data loss for existing users,
+    // and ensure in-place APK upgrade continuity with original and existing installations.
     namespace = "tgo1014.gridlauncher"
     compileSdk = 35
 
@@ -20,6 +23,7 @@ android {
         .getOrElse("1.0.0")
 
     defaultConfig {
+        // Willfully retained application identity for upgrade continuity across builds
         applicationId = "tgo1014.gridlauncher"
         minSdk = 21
         targetSdk = 35

@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    NOTE ON PACKAGE IDENTITY:
+    The package identity and namespace (tgo1014.gridlauncher) are willfully retained
+    to ensure seamless in-place APK upgrades, maintain backward compatibility with existing
+    launcher configurations and shortcuts, and prevent DataStore/SharedPreferences loss.
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
