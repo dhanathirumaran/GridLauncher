@@ -79,7 +79,8 @@ class UpdateAppListUseCase @Inject constructor(
                     SmartTileType.STEP_COUNTER,
                     SmartTileType.BATTERY,
                     SmartTileType.CURRENCY,
-                    SmartTileType.WEATHER
+                    SmartTileType.WEATHER,
+                    SmartTileType.CALENDAR
                 )
                 val latestGrid = appsManager.homeGridFlow.firstOrNull().orEmpty().toMutableList()
                 var maxId = latestGrid.maxOfOrNull { it.id } ?: -1
@@ -88,7 +89,7 @@ class UpdateAppListUseCase @Inject constructor(
                         id = ++maxId,
                         itemType = GridItemType.SMART_TILE,
                         smartTileType = smartType,
-                        width = 2,
+                        width = if (smartType == SmartTileType.CALENDAR) 4 else 2,
                         height = 2,
                         x = 0,
                         y = 0
@@ -96,8 +97,28 @@ class UpdateAppListUseCase @Inject constructor(
                     latestGrid.add(item)
                 }
                 prefs.edit().putBoolean("SMART_TILES_INITIALIZED", true).apply()
+                prefs.edit().putBoolean("CALENDAR_TILE_INITIALIZED", true).apply()
                 val compactedWithSmartTiles = GridPacker.compact(latestGrid)
                 appsManager.setGrid(compactedWithSmartTiles)
+            } else if (!prefs.getBoolean("CALENDAR_TILE_INITIALIZED", false)) {
+                val latestGrid = appsManager.homeGridFlow.firstOrNull().orEmpty().toMutableList()
+                val existingSmartTypes = latestGrid.filter { it.itemType == GridItemType.SMART_TILE }.mapNotNull { it.smartTileType }.toSet()
+                if (SmartTileType.CALENDAR !in existingSmartTypes) {
+                    var maxId = latestGrid.maxOfOrNull { it.id } ?: -1
+                    val calItem = GridItem(
+                        id = ++maxId,
+                        itemType = GridItemType.SMART_TILE,
+                        smartTileType = SmartTileType.CALENDAR,
+                        width = 4,
+                        height = 2,
+                        x = 0,
+                        y = 0
+                    )
+                    latestGrid.add(calItem)
+                    val compacted = GridPacker.compact(latestGrid)
+                    appsManager.setGrid(compacted)
+                }
+                prefs.edit().putBoolean("CALENDAR_TILE_INITIALIZED", true).apply()
             }
 
             // 3. Automatically add all installed apps that are not yet on the grid

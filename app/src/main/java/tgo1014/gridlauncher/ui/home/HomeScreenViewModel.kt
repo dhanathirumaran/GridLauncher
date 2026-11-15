@@ -28,12 +28,14 @@ import android.provider.Settings
 import android.widget.Toast
 import dagger.hilt.android.qualifiers.ApplicationContext
 import tgo1014.gridlauncher.ui.MainActivity
+import tgo1014.gridlauncher.data.calendar.CalendarEventManager
 import tgo1014.gridlauncher.data.smarttile.BatteryTileManager
 import tgo1014.gridlauncher.data.smarttile.CurrencyRateManager
 import tgo1014.gridlauncher.data.smarttile.FlashlightManager
 import tgo1014.gridlauncher.data.smarttile.SamsungFinderHelper
 import tgo1014.gridlauncher.data.smarttile.StepCounterManager
 import tgo1014.gridlauncher.data.smarttile.WeatherManager
+import tgo1014.gridlauncher.data.notification.NotificationRepository
 import tgo1014.gridlauncher.domain.usecases.GetAppListUseCase
 import tgo1014.gridlauncher.domain.usecases.ItemGridSizeChangeUseCase
 import tgo1014.gridlauncher.domain.usecases.MoveGridItemUseCase
@@ -71,6 +73,7 @@ class HomeScreenViewModel @Inject constructor(
     private val currencyRateManager: CurrencyRateManager,
     private val weatherManager: WeatherManager,
     private val notificationRepository: NotificationRepository,
+    private val calendarEventManager: CalendarEventManager,
 ) : ViewModel() {
 
     private var fullAppList: List<App> = emptyList()
@@ -98,6 +101,10 @@ class HomeScreenViewModel @Inject constructor(
         )
     }.combine(weatherManager.weatherState) { data, weather ->
         data.copy(weatherState = weather)
+    }.combine(calendarEventManager.events) { data, events ->
+        data.copy(calendarEvents = events)
+    }.combine(calendarEventManager.hasPermission) { data, hasPerm ->
+        data.copy(isCalendarPermissionGranted = hasPerm)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SmartTileData())
 
     init {
@@ -121,7 +128,23 @@ class HomeScreenViewModel @Inject constructor(
         when {
             !_stateFlow.value.isEditMode -> {
                 when (gridItem.itemType) {
-                    GridItemType.APP -> onOpenApp(gridItem.app)
+                    GridItemType.APP -> {
+                        if (gridItem.width >= 4 && gridItem.height >= 2 &&
+                            CalendarEventManager.isCalendarApp(gridItem.app.packageName) &&
+                            !calendarEventManager.hasPermission()
+                        ) {
+                            runCatching {
+                                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.fromParts("package", context.packageName, null)
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                                Toast.makeText(context, "Please grant Calendar permission", Toast.LENGTH_LONG).show()
+                            }
+                        } else {
+                            onOpenApp(gridItem.app)
+                        }
+                    }
                     GridItemType.SHORTCUT -> {
                         delay(200)
                         _stateFlow.update { it.copy(goToHome = true) }
@@ -193,7 +216,38 @@ class HomeScreenViewModel @Inject constructor(
             SmartTileType.WEATHER -> {
                 viewModelScope.launch { weatherManager.fetchWeather(force = true) }
             }
+            SmartTileType.CALENDAR -> {
+                if (!calendarEventManager.hasPermission()) {
+                    runCatching {
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                        Toast.makeText(context, "Please grant Calendar permission", Toast.LENGTH_LONG).show()
+                    }
+                    return
+                }
+                openCalendarApp()
+            }
             null -> {}
+        }
+    }
+
+    fun openCalendarApp() {
+        runCatching {
+            val intent = Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_APP_CALENDAR)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        }.recoverCatching {
+            val calendarIntent = context.packageManager.getLaunchIntentForPackage("com.google.android.calendar")
+                ?: context.packageManager.getLaunchIntentForPackage("com.samsung.android.calendar")
+            if (calendarIntent != null) {
+                calendarIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(calendarIntent)
+            }
         }
     }
 
@@ -203,6 +257,7 @@ class HomeScreenViewModel @Inject constructor(
 
     fun onSwitchedToHome() {
         _stateFlow.update { it.copy(goToHome = false) }
+        calendarEventManager.refresh()
     }
 
     fun onAddToGrid(app: App) = viewModelScope.launch {
@@ -249,7 +304,8 @@ class HomeScreenViewModel @Inject constructor(
                 it.copy(
                     isSettingsSheetShowing = true,
                     isDefaultLauncher = isDefaultLauncher(),
-                    isNotificationAccessGranted = notificationRepository.isAccessGranted(context)
+                    isNotificationAccessGranted = notificationRepository.isAccessGranted(context),
+                    isCalendarPermissionGranted = calendarEventManager.hasPermission()
                 )
             }
 
@@ -273,6 +329,19 @@ class HomeScreenViewModel @Inject constructor(
             SettingsEvent.OnOpenNotificationAccessSettings -> {
                 runCatching {
                     val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                }
+            }
+            SettingsEvent.OnCalendarPermissionGranted -> {
+                calendarEventManager.refresh()
+                _stateFlow.update { it.copy(isCalendarPermissionGranted = true) }
+            }
+            SettingsEvent.OnOpenAppSettings -> {
+                runCatching {
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.fromParts("package", context.packageName, null)
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     context.startActivity(intent)

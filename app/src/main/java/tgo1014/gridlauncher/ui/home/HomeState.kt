@@ -14,6 +14,7 @@ data class HomeState(
     val isSettingsSheetShowing: Boolean = false,
     val isDefaultLauncher: Boolean = false,
     val isNotificationAccessGranted: Boolean = false,
+    val isCalendarPermissionGranted: Boolean = false,
 ) {
     val isEditMode get() = itemBeingEdited != null
 }

@@ -44,6 +44,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.Wallpapers
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import tgo1014.gridlauncher.data.calendar.CalendarEventManager
 import tgo1014.gridlauncher.data.notification.NotificationSender
 import tgo1014.gridlauncher.domain.models.App
 import tgo1014.gridlauncher.domain.models.TileSettings
@@ -78,6 +79,8 @@ fun GridTile(
             batteryState = smartData.batteryState,
             currencyState = smartData.currencyState,
             weatherState = smartData.weatherState,
+            calendarEvents = smartData.calendarEvents,
+            isCalendarPermissionGranted = smartData.isCalendarPermissionGranted,
             onItemClicked = onItemClicked,
             onItemLongClicked = onItemLongClicked
         )
@@ -137,20 +140,30 @@ fun GridTile(
             }
         }
         if (item.width >= 4 && item.height >= 2) {
-            val liveNotifications = if (!isShortcut) LocalAppNotifications.current[item.app.packageName] else null
-            val hasLiveNotifications = !liveNotifications.isNullOrEmpty()
-            val animatedHorizontalBias by animateFloatAsState(
-                targetValue = if (hasLiveNotifications) -1f else 0f,
-                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
-                label = "iconHorizontalBias"
-            )
-            val horizontalPadding = (16 + (tileSettings.cornerRadius - 8).coerceAtLeast(0) * 0.2f).dp
+            val isCalendar = !isShortcut && CalendarEventManager.isCalendarApp(item.app.packageName)
+            if (isCalendar) {
+                val smartData = LocalSmartTileData.current
+                AppleCalendarContent(
+                    calendarEvents = smartData.calendarEvents,
+                    isPermissionGranted = smartData.isCalendarPermissionGranted,
+                    textColor = textColor,
+                    maxEvents = if (item.height >= 3) 4 else 2
+                )
+            } else {
+                val liveNotifications = if (!isShortcut) LocalAppNotifications.current[item.app.packageName] else null
+                val hasLiveNotifications = !liveNotifications.isNullOrEmpty()
+                val animatedHorizontalBias by animateFloatAsState(
+                    targetValue = if (hasLiveNotifications) -1f else 0f,
+                    animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                    label = "iconHorizontalBias"
+                )
+                val horizontalPadding = (16 + (tileSettings.cornerRadius - 8).coerceAtLeast(0) * 0.2f).dp
 
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = horizontalPadding, vertical = 8.dp)
-            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = horizontalPadding, vertical = 8.dp)
+                ) {
                 val iconModifier = Modifier
                     .size(36.dp)
                     .align(BiasAlignment(animatedHorizontalBias, 0f))
@@ -227,7 +240,8 @@ fun GridTile(
                     )
                 }
             }
-        } else if (item.width >= 2 && item.height == 1) {
+        }
+    } else if (item.width >= 2 && item.height == 1) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.fillMaxSize()

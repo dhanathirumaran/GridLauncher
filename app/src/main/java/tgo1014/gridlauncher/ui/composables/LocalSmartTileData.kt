@@ -12,7 +12,9 @@ data class SmartTileData(
     val stepCounterState: StepCounterState = StepCounterState(),
     val batteryState: BatteryTileState = BatteryTileState(),
     val currencyState: CurrencyState = CurrencyState(),
-    val weatherState: WeatherState = WeatherState()
+    val weatherState: WeatherState = WeatherState(),
+    val calendarEvents: List<tgo1014.gridlauncher.data.calendar.CalendarEvent> = emptyList(),
+    val isCalendarPermissionGranted: Boolean = false
 )
 
 val LocalSmartTileData = compositionLocalOf { SmartTileData() }

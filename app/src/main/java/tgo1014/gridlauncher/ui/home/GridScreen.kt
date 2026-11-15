@@ -102,6 +102,7 @@ fun GridScreenScreen(
         isShowing = state.isSettingsSheetShowing,
         isDefaultLauncher = state.isDefaultLauncher,
         isNotificationAccessGranted = state.isNotificationAccessGranted,
+        isCalendarPermissionGranted = state.isCalendarPermissionGranted,
         onSettingsEvent = onSettingsEvent
     )
 }

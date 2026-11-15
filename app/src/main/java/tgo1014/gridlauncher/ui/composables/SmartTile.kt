@@ -53,6 +53,8 @@ fun SmartTile(
     batteryState: BatteryTileState = BatteryTileState(),
     currencyState: CurrencyState = CurrencyState(),
     weatherState: WeatherState = WeatherState(),
+    calendarEvents: List<tgo1014.gridlauncher.data.calendar.CalendarEvent> = emptyList(),
+    isCalendarPermissionGranted: Boolean = false,
     onItemClicked: (item: GridItem) -> Unit = {},
     onItemLongClicked: (item: GridItem) -> Unit = {},
 ) {
@@ -130,6 +132,14 @@ fun SmartTile(
             }
             Quad("Weather", weatherIcon, weatherState.temperature, sub)
         }
+        SmartTileType.CALENDAR -> {
+            val status = when {
+                !isCalendarPermissionGranted -> "Permission"
+                calendarEvents.isEmpty() -> "No events"
+                else -> "${calendarEvents.size} event${if (calendarEvents.size > 1) "s" else ""}"
+            }
+            Quad("Calendar", SmartTileIcons.Calendar, status, "today")
+        }
     }
 
     // Highlighting background for flashlight when ON
@@ -158,6 +168,16 @@ fun SmartTile(
             .then(modifier)
     ) {
         when {
+            // Apple-style Calendar Tile (4x2 or larger wide tile)
+            type == SmartTileType.CALENDAR && item.width >= 4 && item.height >= 2 -> {
+                AppleCalendarContent(
+                    calendarEvents = calendarEvents,
+                    isPermissionGranted = isCalendarPermissionGranted,
+                    textColor = contentColor,
+                    maxEvents = if (item.height >= 3) 4 else 2
+                )
+            }
+
             // 2x1 Wide tile (or 4x1)
             item.width >= 2 && item.height == 1 -> {
                 Box(

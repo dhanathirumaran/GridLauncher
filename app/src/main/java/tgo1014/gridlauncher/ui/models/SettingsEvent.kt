@@ -11,4 +11,6 @@ sealed class SettingsEvent {
     data class OnWallpaperPicked(val uri: Uri) : SettingsEvent()
     data object OnOpenDefaultLauncherSettings : SettingsEvent()
     data object OnOpenNotificationAccessSettings : SettingsEvent()
+    data object OnCalendarPermissionGranted : SettingsEvent()
+    data object OnOpenAppSettings : SettingsEvent()
 }

@@ -61,6 +61,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var weatherManager: WeatherManager
 
+    @Inject
+    lateinit var calendarEventManager: tgo1014.gridlauncher.data.calendar.CalendarEventManager
+
     private val homeScreenViewModel: HomeScreenViewModel by viewModels()
 
     private val permissionLauncher = registerForActivityResult(
@@ -73,6 +76,9 @@ class MainActivity : ComponentActivity() {
             permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
         ) {
             weatherManager.fetchWeatherAsync()
+        }
+        if (permissions[Manifest.permission.READ_CALENDAR] == true) {
+            calendarEventManager.refresh()
         }
     }
 
@@ -92,6 +98,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         lifecycleScope.launch { updateAppListUseCase() }
+        calendarEventManager.refresh()
     }
 
     override fun onNewIntent(intent: Intent) {

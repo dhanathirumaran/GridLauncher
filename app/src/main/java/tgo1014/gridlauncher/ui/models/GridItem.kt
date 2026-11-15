@@ -19,7 +19,8 @@ enum class SmartTileType {
     STEP_COUNTER,
     BATTERY,
     CURRENCY,
-    WEATHER
+    WEATHER,
+    CALENDAR
 }
 
 @Serializable

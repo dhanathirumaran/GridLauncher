@@ -237,4 +237,41 @@ object SmartTileIcons {
             }
         }.build()
     }
+
+    val Calendar: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "Calendar",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(fill = SolidColor(Color.White)) {
+                moveTo(19f, 3f)
+                lineTo(18f, 3f)
+                lineTo(18f, 1f)
+                lineTo(16f, 1f)
+                lineTo(16f, 3f)
+                lineTo(8f, 3f)
+                lineTo(8f, 1f)
+                lineTo(6f, 1f)
+                lineTo(6f, 3f)
+                lineTo(5f, 3f)
+                curveTo(3.89f, 3f, 3f, 3.9f, 3f, 5f)
+                lineTo(3f, 19f)
+                curveTo(3f, 20.1f, 3.89f, 21f, 5f, 21f)
+                lineTo(19f, 21f)
+                curveTo(20.1f, 21f, 21f, 20.1f, 21f, 19f)
+                lineTo(21f, 5f)
+                curveTo(21f, 3.9f, 20.1f, 3f, 19f, 3f)
+                close()
+                moveTo(19f, 19f)
+                lineTo(5f, 19f)
+                lineTo(5f, 8f)
+                lineTo(19f, 8f)
+                lineTo(19f, 19f)
+                close()
+            }
+        }.build()
+    }
 }

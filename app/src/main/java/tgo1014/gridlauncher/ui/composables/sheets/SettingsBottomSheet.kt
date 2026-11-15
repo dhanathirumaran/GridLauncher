@@ -39,6 +39,7 @@ fun SettingsBottomSheet(
     isShowing: Boolean,
     isDefaultLauncher: Boolean = false,
     isNotificationAccessGranted: Boolean = false,
+    isCalendarPermissionGranted: Boolean = false,
     onSettingsEvent: (SettingsEvent) -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState()
@@ -55,6 +56,7 @@ fun SettingsBottomSheet(
                 tileSettings = tileSettings,
                 isDefaultLauncher = isDefaultLauncher,
                 isNotificationAccessGranted = isNotificationAccessGranted,
+                isCalendarPermissionGranted = isCalendarPermissionGranted,
                 onSettingsEvent = onSettingsEvent,
             )
         }
@@ -66,6 +68,7 @@ private fun SettingsBottomSheet(
     tileSettings: TileSettings = TileSettings(),
     isDefaultLauncher: Boolean = false,
     isNotificationAccessGranted: Boolean = false,
+    isCalendarPermissionGranted: Boolean = false,
     onSettingsEvent: (SettingsEvent) -> Unit = {},
 ) {
     val singlePhotoPickerLauncher = rememberLauncherForActivityResult(
@@ -121,6 +124,38 @@ private fun SettingsBottomSheet(
                 onClick = { onSettingsEvent(SettingsEvent.OnOpenNotificationAccessSettings) }
             ) {
                 Text(if (isNotificationAccessGranted) "Settings" else "Enable")
+            }
+        }
+        val calendarPermissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            if (isGranted) {
+                onSettingsEvent(SettingsEvent.OnCalendarPermissionGranted)
+            }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 4.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Calendar Access")
+                Text(
+                    text = if (isCalendarPermissionGranted) "Active — today's events shown on calendar tiles" else "Permission needed for Apple-style calendar tile",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Button(
+                onClick = {
+                    if (!isCalendarPermissionGranted) {
+                        calendarPermissionLauncher.launch(android.Manifest.permission.READ_CALENDAR)
+                    } else {
+                        onSettingsEvent(SettingsEvent.OnOpenAppSettings)
+                    }
+                }
+            ) {
+                Text(if (isCalendarPermissionGranted) "Granted" else "Enable")
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
