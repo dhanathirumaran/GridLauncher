@@ -450,5 +450,7 @@ The issues identified across the codebase fall into two distinct categories:
   1. **Data Loss Prevention:** Android partitions SQLite, DataStore, and SharedPreferences by Application ID. Altering the ID wipes existing user grids, custom transparencies, step baselines, and widget placements upon upgrade.
   2. **In-Place APK Upgrade Continuity:** Users updating from earlier builds or releases can install new APKs directly without needing to uninstall or recreate home screen layouts.
   3. **Attribution & Lineage:** Upstream assets in `README.md` and package namespace explicitly acknowledge the project's foundation while development and releases remain self-contained at `dhanathirumaran/GridLauncher`.
+- **Signing Key Configuration:** The repository intentionally utilizes `dummyKey` (password `123456`) in `app/build.gradle.kts` for both `debug` and `release` configurations to facilitate automated GitHub Actions CI artifact builds and straightforward sideloading across testing environments without requiring secure keystore distribution.
+
 
 

@@ -33,6 +33,11 @@ android {
         vectorDrawables.useSupportLibrary = true
     }
     signingConfigs {
+        // NOTE: The dummy signing key (dummyKey / 123456) is intentionally and willfully used
+        // for both debug and release builds to enable automated GitHub Actions CI builds and
+        // friction-free local device sideloading without requiring secret keystore credentials.
+        // If preparing a production release for the Google Play Store, replace this with secure
+        // environment variables or Play App Signing keystore credentials.
         create("release") {
             storeFile = file("dummyKey")
             storePassword = "123456"
