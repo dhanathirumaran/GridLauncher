@@ -54,6 +54,7 @@ fun GridTile(
     modifier: Modifier = Modifier,
     tileSettings: TileSettings = TileSettings(),
     isEditMode: Boolean = false,
+    liveNotifications: List<NotificationSender>? = null,
     onItemClicked: (item: GridItem) -> Unit = {},
     onItemLongClicked: (item: GridItem) -> Unit = {},
 ) {
@@ -130,11 +131,10 @@ fun GridTile(
                 else -> Color.White
             }
         }
-        val liveNotifications = if (!isShortcut) LocalAppNotifications.current[item.app.packageName] else null
-        val hasLiveNotifications = !liveNotifications.isNullOrEmpty()
+        val effectiveNotifications = liveNotifications ?: if (!isShortcut) LocalAppNotifications.current[item.app.packageName] else null
+        val hasLiveNotifications = !effectiveNotifications.isNullOrEmpty()
         val isCalendar = !isShortcut && CalendarEventManager.isCalendarApp(item.app.packageName)
-        val isPhone = !isShortcut && PhoneAppManager.isPhoneApp(item.app.packageName)
-        val hasMissedCall = hasLiveNotifications && (isPhone || liveNotifications.orEmpty().any { it.isMissedCall })
+        val hasMissedCall = hasLiveNotifications && effectiveNotifications.orEmpty().any { it.isMissedCall }
 
         if (item.width >= 4 && item.height >= 2 && isCalendar) {
             val smartData = LocalSmartTileData.current
@@ -147,7 +147,7 @@ fun GridTile(
         } else if (item.width >= 4 && item.height >= 2 && hasMissedCall) {
             AppleMissedCallContent(
                 iconModel = iconModel,
-                liveNotifications = liveNotifications!!,
+                liveNotifications = effectiveNotifications!!,
                 textColor = textColor,
                 isPreview = isPreview
             )
@@ -178,7 +178,7 @@ fun GridTile(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.Center
                 ) {
-                    val sendersToShow = liveNotifications!!.take(3)
+                    val sendersToShow = effectiveNotifications!!.take(3)
                     sendersToShow.forEach { sender ->
                         val countText = if (sender.count > 1) " (${sender.count})" else ""
                         Text(
@@ -192,9 +192,9 @@ fun GridTile(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    if (liveNotifications.size > 3) {
+                    if (effectiveNotifications.size > 3) {
                         Text(
-                            text = "+${liveNotifications.size - 3} more",
+                            text = "+${effectiveNotifications.size - 3} more",
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             color = textColor.copy(alpha = 0.7f),

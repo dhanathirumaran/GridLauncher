@@ -121,9 +121,9 @@ fun SmartTile(
         }
         SmartTileType.WEATHER -> {
             val weatherIcon = when {
-                weatherState.isLocationMissing -> SmartTileIcons.Search
-                weatherState.weatherCode >= 50 -> SmartTileIcons.WeatherCloud
-                else -> SmartTileIcons.WeatherSun
+                weatherState.isLocationMissing -> SmartTileIcons.WeatherCloud
+                weatherState.weatherCode == 0 -> SmartTileIcons.WeatherSun
+                else -> SmartTileIcons.WeatherCloud
             }
             val sub = when {
                 weatherState.isLocationMissing -> "No Location"
@@ -141,7 +141,7 @@ fun SmartTile(
             Quad("Calendar", SmartTileIcons.Calendar, status, "today")
         }
         SmartTileType.MEDIA_PLAYER -> {
-            Quad("Now Playing", SmartTileIcons.Search, null, null)
+            Quad("Now Playing", SmartTileIcons.MusicNote, null, null)
         }
     }
 

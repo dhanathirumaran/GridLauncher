@@ -7,6 +7,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
@@ -130,25 +131,15 @@ class HomeScreenViewModel @Inject constructor(
     }
 
     fun onGridItemClicked(gridItem: GridItem) = viewModelScope.launch {
+        if (gridItem.id == DynamicGridTransformer.MEDIA_TILE_ID) {
+            MediaPlaybackManager.openPlayerApp(context)
+            return@launch
+        }
         when {
             !_stateFlow.value.isEditMode -> {
                 when (gridItem.itemType) {
                     GridItemType.APP -> {
-                        if (gridItem.width >= 4 && gridItem.height >= 2 &&
-                            CalendarEventManager.isCalendarApp(gridItem.app.packageName) &&
-                            !calendarEventManager.hasPermission()
-                        ) {
-                            runCatching {
-                                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                    data = Uri.fromParts("package", context.packageName, null)
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                                context.startActivity(intent)
-                                Toast.makeText(context, "Please grant Calendar permission", Toast.LENGTH_LONG).show()
-                            }
-                        } else {
-                            onOpenApp(gridItem.app)
-                        }
+                        onOpenApp(gridItem.app)
                     }
                     GridItemType.SHORTCUT -> {
                         delay(200)
@@ -362,17 +353,24 @@ class HomeScreenViewModel @Inject constructor(
     fun onTileEvent(event: TileEvent) = viewModelScope.launch {
         when (event) {
             is TileEvent.OnTilePositionChanged -> {
-                moveGridItemUseCase(event.itemId, event.targetX, event.targetY)
+                if (event.itemId == DynamicGridTransformer.MEDIA_TILE_ID) return@launch
+                val isMediaActive = mediaPlaybackManager.mediaState.value.isActive
+                val baseGrid = appsManager.homeGridFlow.firstOrNull().orEmpty()
+                val targetY = DynamicGridTransformer.toBaseGridY(event.targetY, baseGrid, isMediaActive)
+                moveGridItemUseCase(event.itemId, event.targetX, targetY)
             }
             is TileEvent.OnTileDimensionChanged -> {
+                if (event.itemId == DynamicGridTransformer.MEDIA_TILE_ID) return@launch
                 itemGridSizeChangeUseCase(event.itemId, event.newWidth, event.newHeight)
             }
             is TileEvent.OnShortcutRemoved -> {
+                if (event.item.id == DynamicGridTransformer.MEDIA_TILE_ID) return@launch
                 removeFromGridUseCase(event.item).onSuccess {
                     _stateFlow.update { it.copy(itemBeingEdited = null) }
                 }
             }
             is TileEvent.OnAppUninstalled -> {
+                if (event.item.id == DynamicGridTransformer.MEDIA_TILE_ID) return@launch
                 uninstallApp(event.item.app)
                 _stateFlow.update { it.copy(itemBeingEdited = null) }
             }

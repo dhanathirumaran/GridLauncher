@@ -99,6 +99,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         lifecycleScope.launch { updateAppListUseCase() }
         calendarEventManager.refresh()
+        tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager.sync()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -112,10 +113,23 @@ class MainActivity : ComponentActivity() {
         if (isDefaultLauncher()) return
         val prefs = getSharedPreferences("LAUNCHER_PREFS", Context.MODE_PRIVATE)
         if (prefs.getBoolean("HAS_ASKED_DEFAULT_LAUNCHER", false)) return
-        prefs.edit().putBoolean("HAS_ASKED_DEFAULT_LAUNCHER", true).apply()
-        runCatching {
+
+        val launched = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val roleManager = getSystemService(Context.ROLE_SERVICE) as? RoleManager
+                if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_HOME)) {
+                    val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME)
+                    startActivity(intent)
+                    return@runCatching true
+                }
+            }
             val intent = Intent(Settings.ACTION_HOME_SETTINGS)
             startActivity(intent)
+            true
+        }.getOrDefault(false)
+
+        if (launched) {
+            prefs.edit().putBoolean("HAS_ASKED_DEFAULT_LAUNCHER", true).apply()
         }
     }
 

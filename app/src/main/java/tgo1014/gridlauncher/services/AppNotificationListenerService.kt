@@ -1,8 +1,11 @@
 package tgo1014.gridlauncher.services
 
 import android.app.Notification
+import android.os.Handler
+import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.util.Log
 import tgo1014.gridlauncher.data.notification.NotificationRepository
 import tgo1014.gridlauncher.data.notification.NotificationSender
 
@@ -13,29 +16,37 @@ class AppNotificationListenerService : NotificationListenerService() {
             private set
     }
 
+    private val handler = Handler(Looper.getMainLooper())
+    private val syncRunnable = Runnable {
+        syncActiveNotifications()
+        tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager.sync()
+    }
+
     override fun onListenerConnected() {
         super.onListenerConnected()
         isConnected = true
-        syncActiveNotifications()
-        tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager.sync()
+        scheduleSync()
     }
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
         isConnected = false
-        tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager.sync()
+        scheduleSync()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         super.onNotificationPosted(sbn)
-        syncActiveNotifications()
-        tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager.sync()
+        scheduleSync()
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         super.onNotificationRemoved(sbn)
-        syncActiveNotifications()
-        tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager.sync()
+        scheduleSync()
+    }
+
+    private fun scheduleSync() {
+        handler.removeCallbacks(syncRunnable)
+        handler.postDelayed(syncRunnable, 100)
     }
 
     private fun syncActiveNotifications() {
@@ -49,6 +60,10 @@ class AppNotificationListenerService : NotificationListenerService() {
 
                 val pkg = sbn.packageName ?: continue
                 val notif = sbn.notification ?: continue
+
+                // Ignore group summaries to avoid counting both summary and child notifications
+                if ((notif.flags and Notification.FLAG_GROUP_SUMMARY) != 0) continue
+
                 val extras = notif.extras ?: continue
 
                 val convTitle = extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString()?.trim()
@@ -112,7 +127,7 @@ class AppNotificationListenerService : NotificationListenerService() {
 
             NotificationRepository.setNotifications(finalizedMap)
         } catch (e: Exception) {
-            // Guard against SecurityException or IPC errors during system teardown
+            Log.e("NotificationListener", "Failed to sync notifications", e)
         }
     }
 

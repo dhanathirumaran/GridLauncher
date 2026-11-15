@@ -81,15 +81,23 @@ class MediaPlaybackManager @Inject constructor(
         syncActiveSessions()
     }
 
+    private var isListenerRegistered = false
+
     fun registerListener() {
+        if (isListenerRegistered) return
         try {
             mediaSessionManager?.addOnActiveSessionsChangedListener(sessionsChangedListener, componentName)
+            isListenerRegistered = true
         } catch (_: Exception) {
             // Guard against SecurityException if notification listener access is not yet granted
+            isListenerRegistered = false
         }
     }
 
     fun syncActiveSessions() {
+        if (!isListenerRegistered) {
+            registerListener()
+        }
         scope.launch(Dispatchers.Main) {
             try {
                 val controllers = mediaSessionManager?.getActiveSessions(componentName)

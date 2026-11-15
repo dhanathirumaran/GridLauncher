@@ -1,215 +1,304 @@
 # GridLauncher - Code Review Analysis & Technical Fix Plan
 
-This document details the code review findings reported by ChatGPT for [dhanathirumaran/GridLauncher](https://github.com/dhanathirumaran/GridLauncher) along with the comprehensive technical fix specifications.
+This document details the code review findings, architectural audits, and technical fix specifications for [dhanathirumaran/GridLauncher](https://github.com/dhanathirumaran/GridLauncher).
 
 ---
 
-## 1. Identified Issues & Triage
+## 1. Executive Summary: Bug Origin Breakdown
 
-| Priority | Finding | ChatGPT Recommendation | Antigravity Triage / Decision |
-| :--- | :--- | :--- | :--- |
-| **Critical / P0** | Dummy signing credential | Remove hardcoded release signing credentials. | **KEEP AS-IS (User Requested):** The dummy keystore is specifically retained so that GitHub Actions CI can produce signed release APKs without requiring private keystore secrets. |
-| **High / P1** | Weather tile: incorrect location & silent failure | Fallback to last known/cached location, show an unavailable/error state when location cannot be obtained, prevent duplicate requests. | **FIX:** Remove hardcoded Delhi fallback; distinguish between cached vs live vs unavailable location; display offline/error states; debounce requests. |
-| **High / P1** | Step counter: hardware compatibility & permissions | Check sensor availability, check registration success, handle missing sensor, handle midnight reset and reboot gracefully. | **FIX:** Detect missing hardware sensor (`TYPE_STEP_COUNTER` == null); check registration success; show "No Sensor" or "Permission Needed" in tile UI; harden midnight/reboot calculations. |
-| **High / P1** | Launcher fallback behavior | Implement fallback launcher recovery if user skips the initial prompt. | **FIX:** Add "Default Launcher" status and button inside `SettingsBottomSheet` linking to `ACTION_HOME_SETTINGS` / `RoleManager`. |
-| **High / P1** | Permission handling | Gracefully handle denial, permanently denied, and revoked permissions. | **FIX:** Handle denied permissions with user feedback in smart tiles (e.g. tapping step counter when permission denied opens permission prompt or app settings). |
-| **Medium / P2** | Currency tile: network reliability | Add fallback/error states, expose retry, cache response, prevent duplicate concurrent requests. | **FIX:** Add `CurrencyState` with loading/error/stale flags; don't default to hardcoded 84.40 on clean install; debounce/throttle HTTP calls. |
-| **Medium / P2** | Flashlight tile: state synchronization | Camera exceptions silently ignored, state updated optimistically, no availability tracking. | **FIX:** Rely strictly on `TorchCallback` for state changes; implement `onTorchModeUnavailable`; catch and handle `CameraAccessException`. |
-| **Medium / P2** | Grid initialization & app removal | Guard against transient empty/partial package manager queries purging tiles permanently. | **FIX:** Verify uninstallation with `PackageManager.getPackageInfo` (`NameNotFoundException`) before deleting tiles, avoiding accidental tile wipe on partial scan. |
-| **Medium / P3** | Backup configuration | Define explicit backup rules and disable transfer/restore for ephemeral/hardware-specific settings. | **FIX:** Configure `data_extraction_rules.xml` and `backup_rules.xml` to exclude ephemeral shared preferences (`STEP_COUNTER_PREFS`, `WEATHER_PREFS`, `CURRENCY_PREFS`). |
-| **Low / P3** | Release verification & ProGuard / R8 rules | Ensure R8 rules prevent stripping Kotlinx Serialization and DataStore domain models. | **FIX:** Add comprehensive R8 keep rules for `@Serializable` classes and companion objects in `proguard-rules.pro`. |
+The issues identified across the codebase fall into two distinct categories:
 
----
+1. **Early Architectural Bugs:** Flaws present in the foundational grid engine, original sensor managers, backup rules, and system intents.
+2. **New Feature Bugs:** Regressions and edge cases introduced during recent additions (Dynamic $8\times 2$ Live Music Smart Tile, Apple-style Calendar & Missed Call Live Tiles, and Live Notification badges).
 
-## 2. Deep Dive: Bugs Found in Source Code
-
-### 2.1. Weather Tile - Incorrect Location & Silent Failure
-- **File:** [`WeatherManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/smarttile/WeatherManager.kt)
-- **Current Behavior:**
-  - Coordinates default to New Delhi (`28.6139, 77.2090`). If location permissions are denied, GPS is disabled, or location is unavailable, the user silently sees New Delhi weather.
-  - Network and JSON parsing exceptions in `fetchWeather()` are caught with `runCatching` and swallowed without updating `_weatherState` or setting an error state.
-  - Multiple rapid calls fire unthrottled HTTP requests to `api.open-meteo.com`.
-- **Root Cause:**
-  - Delhi coordinates are hardcoded as defaults for `lat` and `lon`.
-  - `WeatherState` only contains `temperature`, `condition`, and `weatherCode`, lacking `isError`, `isLoading`, or `isLocationAvailable`.
-
-### 2.2. Step Counter - Hardware Compatibility & Sensor Registration
-- **File:** [`StepCounterManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/smarttile/StepCounterManager.kt)
-- **Current Behavior:**
-  - If the device lacks a hardware step counter (`Sensor.TYPE_STEP_COUNTER` returns null, common on tablets or budget devices), `_todaySteps` remains `0` indefinitely with no hint that the sensor is absent.
-  - `sensorManager?.registerListener(...)` returns a `Boolean`, but its result is ignored.
-  - If `ACTIVITY_RECOGNITION` permission is denied on Android 10+, the listener silently never registers.
-- **Root Cause:**
-  - No capability detection or state model for sensor availability (`isSupported`, `hasPermission`, `isListening`).
-
-### 2.3. Currency Tile - Network Reliability & Hardcoded Rate
-- **File:** [`CurrencyRateManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/smarttile/CurrencyRateManager.kt)
-- **Current Behavior:**
-  - Defaults to hardcoded `"84.40"` in `MutableStateFlow` and SharedPreferences. If the initial fetch fails offline, the user sees an outdated or arbitrary 84.40 rate without knowing if it's real.
-  - Network connection timeouts and failures are silently caught and swallowed.
-  - Tapping the currency tile calls `fetchRateIfNeeded(force = true)` with no mutex or throttle, leading to concurrent hanging network requests.
-- **Root Cause:**
-  - Hardcoded string `"84.40"` used as default fallback.
-  - Absence of a request mutex and loading/error state.
-
-### 2.4. Flashlight Tile - Hardware State Synchronization
-- **File:** [`FlashlightManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/smarttile/FlashlightManager.kt)
-- **Current Behavior:**
-  - `toggle()` mutates `_isFlashlightOn.value = newState` immediately and optimistically. If `setTorchMode()` throws an exception (e.g. camera in use by camera app or flash overheated), the UI shows the flashlight as ON while the hardware is OFF.
-  - `onTorchModeUnavailable(camId)` callback is omitted.
-  - If the device lacks flash (`cameraId == null`), `toggle()` silently does nothing without exposing unavailability.
-- **Root Cause:**
-  - Optimistic UI state assignment instead of waiting for / synchronizing with `TorchCallback`.
-
-### 2.5. Grid Initialization & App Removal Safety
-- **File:** [`UpdateAppListUseCase.kt`](app/src/main/java/tgo1014/gridlauncher/domain/usecases/UpdateAppListUseCase.kt)
-- **Current Behavior:**
-  - Currently guards against `installedApps.isEmpty()`. However, if the PackageManager returns a truncated list during startup/boot or package manager reload, apps missing from that single snapshot are pruned from the grid.
-- **Root Cause:**
-  - Relying solely on `packageName in installedPackageNames` from a single query rather than explicitly checking if the package is truly uninstalled via `packageManager.getPackageInfo(...)` with `NameNotFoundException`.
-
-### 2.6. Launcher Fallback & Recovery
-- **File:** [`MainActivity.kt`](app/src/main/java/tgo1014/gridlauncher/ui/MainActivity.kt) & [`SettingsBottomSheet.kt`](app/src/main/java/tgo1014/gridlauncher/ui/composables/sheets/SettingsBottomSheet.kt)
-- **Current Behavior:**
-  - `askToBeDefaultLauncher()` checks `HAS_ASKED_DEFAULT_LAUNCHER` and never prompts again if the user cancels or presses outside.
-  - There is no setting or button in `SettingsBottomSheet` to manually set GridLauncher as default or check status.
-
-### 2.7. Backup & Data Extraction Configuration
-- **Files:** [`data_extraction_rules.xml`](app/src/main/res/xml/data_extraction_rules.xml) & [`backup_rules.xml`](app/src/main/res/xml/backup_rules.xml)
-- **Current Behavior:**
-  - Default Android Studio template files with commented-out rules.
-  - Device-specific hardware sensor preferences (`STEP_COUNTER_PREFS`), location weather cache, and currency cache risk being transferred to different hardware during Google Cloud restore.
-
-### 2.8. R8 / ProGuard Obfuscation Safety
-- **File:** [`proguard-rules.pro`](app/proguard-rules.pro)
-- **Current Behavior:**
-  - Missing keep rules for Kotlinx Serialization generated serializers, companion objects, and DataStore model classes, which can lead to `SerializationException` in minified release APKs.
+| ID | Issue Description | Origin | Impact | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **B01** | **Layout corruption while media plays** | **New** (Media Tile) | Critical | Pending Fix |
+| **B02** | **Media tile overlaps straddling tiles** | **New** (Media Tile) | High | Pending Fix |
+| **B03** | **Media tile selectable in edit mode** | **New** (Media Tile) | Medium | Pending Fix |
+| **B04** | **Wide Calendar tile hijacks app launch** | **New** (Calendar Tile) | High | Pending Fix |
+| **B05** | **All-day events on wrong day in UTC+ zones** | **New** (Calendar Tile) | High | Pending Fix |
+| **B06** | **"Missed calls" parsed as caller name** | **New** (Missed Call Tile) | Medium | Pending Fix |
+| **B07** | **Any dialer notification triggers missed-call layout** | **New** (Missed Call Tile) | High | Pending Fix |
+| **B08** | **Media listener never starts if permission granted post-launch** | **New** (Media Tile) | High | Pending Fix |
+| **B09** | **Weather condition icons and codes mismatch** | **Early** (Smart Tile) | Medium | Pending Fix |
+| **B10** | **Fragile weather network fetching & concurrency** | **Early** (Weather Manager) | Medium | Pending Fix |
+| **B11** | **Step counter false "No Sensor" & missing midnight rollover** | **Early** (Step Counter) | High | Pending Fix |
+| **B12** | **Stale calendar events & hardcoded 12h time** | **New** (Calendar Tile) | Medium | Pending Fix |
+| **B13** | **Notification counts double & unthrottled sync** | **New** (Live Notifications) | High | Pending Fix |
+| **B14** | **UpdateAppListUseCase marks setup done on failure** | **Early** (Grid Engine) | High | Pending Fix |
+| **B15** | **Cloud backup restore drops smart tiles** | **Early** (Backup Config) | High | Pending Fix |
+| **B16** | **Media player progress bar remains stationary** | **New** (Media Tile) | Medium | Pending Fix |
+| **B17** | **Placeholder Search icon used for media & weather** | **New & Early** | Low | Pending Fix |
+| **B18** | **Full grid recomposition on any notification update** | **New** (Live Notifications) | Medium | Pending Fix |
+| **B19** | **Default launcher prompt marked asked before launch** | **Early** (MainActivity) | Medium | Pending Fix |
 
 ---
 
-## 3. Step-by-Step Technical Fix Plan
+## 2. Deep Dive: New Feature Bugs (Recent Regressions)
 
-### Step 1: WeatherManager & Weather Tile Error Handling
-1. **Model Update:**
-   ```kotlin
-   data class WeatherState(
-       val temperature: String = "--°",
-       val condition: String = "No Data",
-       val weatherCode: Int = 0,
-       val isLoading: Boolean = false,
-       val isLocationMissing: Boolean = false,
-       val isError: Boolean = false
-   )
-   ```
-2. **Location Logic:**
-   - Check if cached coordinates exist in SharedPreferences (`LAST_LAT`, `LAST_LON`).
-   - If location permissions granted and GPS/Network provides coordinates, update cached coordinates.
-   - If NO coordinates are available (permissions denied or no GPS fix) and NO cached coordinates exist:
-     - DO NOT query Delhi.
-     - Emit `WeatherState(temperature = "--°", condition = "No Location", isLocationMissing = true)`.
-3. **Throttling & Failure Handling:**
-   - Add a 15-minute throttle for automatic background refreshes; allow manual refresh via tap.
-   - Guard network calls with a `Mutex` to prevent duplicate parallel requests.
-   - On network failure, if cached data exists, keep showing cached temperature with condition `"Offline"`; if no cached data, show `"--°"` with `"Offline"`.
-
-### Step 2: StepCounterManager - Hardware Detection & Permission States
-1. **Model / State Update:**
-   ```kotlin
-   data class StepCounterState(
-       val steps: Int = 0,
-       val isSupported: Boolean = true,
-       val hasPermission: Boolean = true
-   )
-   ```
-2. **Capability & Registration:**
-   - If `sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) == null`, set `isSupported = false`.
-   - On Android 10+ (API 29+), check `ACTIVITY_RECOGNITION`. If missing, set `hasPermission = false`.
-   - Check return value of `sensorManager.registerListener(...)`.
-3. **UI Display in `SmartTile`:**
-   - If `!isSupported`: display `"No Sensor"`.
-   - If `!hasPermission`: display `"Permission"`.
-   - If supported and permitted: display step count.
-
-### Step 3: CurrencyRateManager - Network Reliability & Cache
-1. **Model / State Update:**
-   ```kotlin
-   data class CurrencyState(
-       val rate: String = "--.--",
-       val isLoading: Boolean = false,
-       val isError: Boolean = false
-   )
-   ```
-2. **Eliminate Arbitrary Default:**
-   - Initialize with `prefs.getString("LAST_USD_INR", "--.--")`.
-   - Use a `Mutex` in `fetchRateIfNeeded` to prevent concurrent redundant network calls.
-   - On network exception, if cached data exists, keep it; if not, set `isError = true`.
-
-### Step 4: FlashlightManager - True Hardware Synchronization
-1. **Remove Optimistic Update:**
-   - In `toggle()`, do NOT set `_isFlashlightOn.value = newState`. Only call `cameraManager.setTorchMode(id, newState)`.
-   - Let `TorchCallback.onTorchModeChanged` set `_isFlashlightOn.value`.
-2. **Handle Availability & Exceptions:**
-   - Implement `onTorchModeUnavailable(camId)`.
-   - Catch `CameraAccessException` in `toggle()` and show feedback if flash is in use by another app or overheated.
-   - Expose `isAvailable: StateFlow<Boolean>`.
-
-### Step 5: UpdateAppListUseCase - Verified Uninstallation Check
-1. **Safeguard App Removal:**
-   - Do not prune apps solely because `pkg !in installedPackageNames`.
-   - For any app in `currentGrid` missing from `installedPackageNames`, explicitly call:
+### B01. Layout Corruption While Media is Playing
+- **Origin:** **New** (Introduced with Dynamic $8\times 2$ Live Music Smart Tile).
+- **Files:** [`DynamicGridTransformer.kt`](app/src/main/java/tgo1014/gridlauncher/domain/DynamicGridTransformer.kt), [`HomeScreenViewModel.kt`](app/src/main/java/tgo1014/gridlauncher/ui/home/HomeScreenViewModel.kt), [`TileLayout.kt`](app/src/main/java/tgo1014/gridlauncher/ui/composables/TileLayout.kt)
+- **Root Cause:**
+  `DynamicGridTransformer.computeEffectiveGrid` adds `+2` to the `y` coordinate of every item below row 0 in memory for UI presentation. However, when the user drags, resizes, or removes a tile, `TileLayout` emits `targetY` from the *shifted* visual table. `HomeScreenViewModel.onTileEvent` passes this shifted `targetY` directly into `MoveTileUseCase`, `ResizeTileUseCase`, and `DeleteTileUseCase`. The database is permanently updated with shifted coordinates. When music playback ends, the tiles remain displaced by 2 rows or overwrite existing tiles.
+- **Fix Steps:**
+  1. In `HomeScreenViewModel`, map shifted coordinates back to base grid space before calling domain use cases:
      ```kotlin
-     val isActuallyUninstalled = runCatching {
-         context.packageManager.getApplicationInfo(pkg, 0)
-     }.isFailure
-     if (isActuallyUninstalled) {
-         // Safe to remove from grid
+     val unshiftedY = if (isMediaActive && targetY >= insertionY + 2) targetY - 2 else targetY
+     ```
+  2. Prevent any interaction with `MEDIA_TILE_ID` (`-999`) across move, resize, and remove events.
+  3. Alternatively, lock tile repositioning in `TileLayout` while the ephemeral dynamic media tile is active.
+
+### B02. Media Tile Overlaps Tiles that Straddle Insertion Seam
+- **Origin:** **New** (Introduced with Dynamic $8\times 2$ Live Music Smart Tile).
+- **File:** [`DynamicGridTransformer.kt`](app/src/main/java/tgo1014/gridlauncher/domain/DynamicGridTransformer.kt)
+- **Root Cause:**
+  `insertionY` is calculated as `row0Items.maxOfOrNull { it.y + it.height } ?: 1`. Only items with `y >= insertionY` are shifted down. If an item starts at $y=1$ and has height 2 (occupying $y \in [1, 2]$), and `insertionY = 2`, its `it.y < insertionY` condition puts it in `topItems`. The media tile inserts at $y=2$ with height 2 ($y \in [2, 3]$), overlapping row 2 of that item.
+- **Fix Steps:**
+  1. Find a clean horizontal cut line where no existing tile straddles the seam:
+     ```kotlin
+     var insertionY = 1
+     while (baseGrid.any { it.y < insertionY && it.y + it.height > insertionY }) {
+         insertionY++
+     }
+     ```
+  2. Shift all items with `it.y >= insertionY` down by 2 rows.
+
+### B03. Media Tile Selectable in Edit Mode
+- **Origin:** **New** (Introduced with Dynamic $8\times 2$ Live Music Smart Tile).
+- **Files:** [`HomeScreenViewModel.kt`](app/src/main/java/tgo1014/gridlauncher/ui/home/HomeScreenViewModel.kt), [`TileLayout.kt`](app/src/main/java/tgo1014/gridlauncher/ui/composables/TileLayout.kt)
+- **Root Cause:**
+  `onGridItemLongClicked` correctly guards against `item.id == -999`, but `onGridItemClicked` in edit mode executes `_stateFlow.update { it.copy(itemBeingEdited = gridItem) }` unconditionally. Tapping the media tile enters edit mode on ID `-999`, displaying resize handles and delete buttons.
+- **Fix Steps:**
+  1. In `onGridItemClicked`, add `if (gridItem.id == DynamicGridTransformer.MEDIA_TILE_ID) return@launch`.
+  2. In `TileLayout.kt`, suppress resize handles, uninstall buttons, and touch gestures if `tileItem.id == DynamicGridTransformer.MEDIA_TILE_ID`.
+
+### B04. Wide Calendar Tile Hijacks Regular App Launch
+- **Origin:** **New** (Introduced with Apple-style Calendar Tile).
+- **Files:** [`HomeScreenViewModel.kt`](app/src/main/java/tgo1014/gridlauncher/ui/home/HomeScreenViewModel.kt), [`CalendarEventManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/calendar/CalendarEventManager.kt)
+- **Root Cause:**
+  `HomeScreenViewModel.onGridItemClicked` checks if an app tile is $\ge 4\times 2$ and `isCalendarApp(pkg)` without calendar permission, opening `ACTION_APPLICATION_DETAILS_SETTINGS` instead of launching the app. Furthermore, `isCalendarApp` uses `pkg.contains("calendar")`, intercepting any third-party app with "calendar" in its package name.
+- **Fix Steps:**
+  1. Always launch the app when an `APP` tile is tapped (`onOpenApp(gridItem.app)`). Never redirect regular app icons to settings.
+  2. Only prompt for permissions when tapping the dedicated `SMART_TILE` (type `CALENDAR`).
+  3. Replace loose `pkg.contains("calendar")` with a strict match against default system calendar and known dialers/calendars via Intent resolution (`CATEGORY_APP_CALENDAR`).
+
+### B05. All-Day Events Shifted to Wrong Day in UTC+ Time Zones
+- **Origin:** **New** (Introduced with Apple Calendar integration).
+- **File:** [`CalendarEventManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/calendar/CalendarEventManager.kt)
+- **Root Cause:**
+  Android Calendar Provider stores all-day events (`ALL_DAY = 1`) in UTC milliseconds from midnight UTC. In UTC+ time zones (e.g. India at UTC+5:30), local midnight is 18:30 UTC of the previous day. Querying `CalendarContract.Instances` using local `startOfDay` to `endOfDay` causes all-day events for today to fall outside the window or appear on yesterday/tomorrow.
+- **Fix Steps:**
+  1. Expand the query window by 24 hours: `startOfDay - 86400000L` to `endOfDay + 86400000L`.
+  2. For all-day events, convert `begin` into year and day-of-year using a UTC `Calendar` instance, and compare against the local current date:
+     ```kotlin
+     val isToday = if (allDay) {
+         val eventUtc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { timeInMillis = begin }
+         val todayLocal = Calendar.getInstance().apply { timeInMillis = System.currentTimeMillis() }
+         eventUtc.get(Calendar.YEAR) == todayLocal.get(Calendar.YEAR) &&
+         eventUtc.get(Calendar.DAY_OF_YEAR) == todayLocal.get(Calendar.DAY_OF_YEAR)
      } else {
-         // Keep existing tile
+         begin in startOfDay..endOfDay || (begin <= startOfDay && end >= startOfDay)
      }
      ```
-   - This completely eliminates accidental grid wiping caused by transient PackageManager lags or partial queries.
 
-### Step 6: Launcher Recovery in SettingsBottomSheet
-1. **Settings Action:**
-   - Add a "Set as Default Launcher" item in `SettingsBottomSheet`.
-   - Show status indicator (e.g. "Default Launcher: Active" or "Default Launcher: Not set").
-   - When tapped, invoke `Settings.ACTION_HOME_SETTINGS` (or `RoleManager.createRequestRoleIntent(RoleManager.ROLE_HOME)` on Android 10+).
-
-### Step 7: Backup Rules Configuration
-1. **`data_extraction_rules.xml` & `backup_rules.xml`:**
-   - Include general launcher grid preferences and theme settings.
-   - Exclude device-specific sensor baseline and cache files:
-     - `STEP_COUNTER_PREFS.xml`
-     - `WEATHER_PREFS.xml`
-     - `CURRENCY_PREFS.xml`
-     - `LAUNCHER_PREFS.xml`
-
-### Step 8: ProGuard / R8 Rules Verification
-1. **`app/proguard-rules.pro`:**
-   - Add keep rules for Kotlinx Serialization:
-     ```proguard
-     -keepattributes *Annotation*,InnerClasses
-     -dontnote kotlinx.serialization.SerializationKt
-     -keepclassmembers class * {
-         @kotlinx.serialization.SerialName <fields>;
+### B06. Notification Title "Missed calls" Displayed as Caller Name
+- **Origin:** **New** (Introduced with Missed Call Tile).
+- **File:** [`PhoneAppManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/phone/PhoneAppManager.kt)
+- **Root Cause:**
+  In `extractCallerName`, the condition `!title.isNullOrBlank() && titleLower != "missed call" && !titleLower.matches(Regex("\\d+ missed calls?"))` evaluates to `true` when the notification title is plural `"Missed calls"`. It therefore returns `"Missed calls"` as the caller's name.
+- **Fix Steps:**
+  1. Add explicit exclusion:
+     ```kotlin
+     if (titleLower in setOf("missed call", "missed calls") || titleLower.contains("missed call")) {
+         // Fallback to text content for contact name
      }
-     -keepclassmembers class * {
-         *** Companion;
-     }
-     -keepclasseswithmembers class * {
-         kotlinx.serialization.KSerializer serializer(...);
-     }
-     -keep,allowobfuscation,allowshrinking class * extends kotlinx.serialization.internal.GeneratedSerializer { *; }
-     -keep class tgo1014.gridlauncher.domain.models.** { *; }
-     -keep class tgo1014.gridlauncher.ui.models.** { *; }
      ```
+
+### B07. Any Dialer Notification Triggers Missed-Call Layout
+- **Origin:** **New** (Introduced with Missed Call Tile).
+- **File:** [`GridTile.kt`](app/src/main/java/tgo1014/gridlauncher/ui/composables/GridTile.kt)
+- **Root Cause:**
+  Line 137 uses `hasMissedCall = hasLiveNotifications && (isPhone || any isMissedCall)`. If the Phone app posts any notification (such as an ongoing call, voicemail, or carrier network prompt), `isPhone` causes `hasMissedCall` to evaluate to `true`.
+- **Fix Steps:**
+  1. Require an actual missed call flag:
+     ```kotlin
+     val hasMissedCall = hasLiveNotifications && liveNotifications.orEmpty().any { it.isMissedCall }
+     ```
+
+### B08. Media Listener Never Registers if Permission Granted Post-Launch
+- **Origin:** **New** (Introduced with Live Media Player Tile).
+- **File:** [`MediaPlaybackManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/smarttile/MediaPlaybackManager.kt)
+- **Root Cause:**
+  `registerListener()` is called once in `init`. If notification access is not yet granted, it throws a `SecurityException` and fails silently. When the user enables access in Settings and returns to GridLauncher, `registerListener()` is never retried until the process is restarted.
+- **Fix Steps:**
+  1. Add a retry flag `isListenerRegistered`.
+  2. Call `registerListener()` inside `syncActiveSessions()`, `onListenerConnected()`, and `MainActivity.onResume()`.
+
+### B12. Calendar Tile Data Goes Stale & Ignores 24h Clock
+- **Origin:** **New** (Introduced with Calendar Tile).
+- **File:** [`CalendarEventManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/calendar/CalendarEventManager.kt)
+- **Root Cause:**
+  1. Filter `if (end < now && !allDay) continue` only runs at query time. Finished events remain on screen indefinitely until manual refresh.
+  2. There is no midnight rollover or `ACTION_TIME_TICK` broadcast listener.
+  3. Precomputed `formattedTime` uses hardcoded `"h:mm a"`, ignoring the device's 24-hour setting.
+- **Fix Steps:**
+  1. Filter events dynamically in the UI or via a periodic ticker flow.
+  2. Register a `BroadcastReceiver` for `ACTION_TIME_TICK`, `ACTION_TIME_CHANGED`, `ACTION_DATE_CHANGED`, and `ACTION_TIMEZONE_CHANGED`.
+  3. Format times using `android.text.format.DateFormat.getTimeFormat(context)`.
+
+### B13. Notification Counts Double & Lack Throttling
+- **Origin:** **New** (Introduced with Live Notifications).
+- **File:** [`AppNotificationListenerService.kt`](app/src/main/java/tgo1014/gridlauncher/services/AppNotificationListenerService.kt)
+- **Root Cause:**
+  1. Notification group summary headers (`FLAG_GROUP_SUMMARY`) are counted alongside child notifications, causing messaging apps like WhatsApp/Telegram to report double counts.
+  2. Every notification post/removal immediately triggers an unthrottled full sync.
+  3. System alert ignore strings are hardcoded in English.
+- **Fix Steps:**
+  1. Check and skip group summaries:
+     ```kotlin
+     if ((notif.flags and Notification.FLAG_GROUP_SUMMARY) != 0) continue
+     ```
+  2. Debounce sync calls with a 100ms delay handler.
+  3. Rely on `Notification.CATEGORY_MISSED_CALL` and localized checks; log exceptions instead of swallowing them.
+
+### B16. Media Player Progress Bar Remains Stationary
+- **Origin:** **New** (Introduced with Live Media Player Tile).
+- **File:** [`LiveMediaTileContent.kt`](app/src/main/java/tgo1014/gridlauncher/ui/composables/LiveMediaTileContent.kt)
+- **Root Cause:**
+  `positionMs` is updated only on `MediaController` playback state transitions. While music is actively playing, `positionMs` remains fixed at the initial snapshot without a ticker.
+- **Fix Steps:**
+  1. Implement a real-time elapsed ticker using `LaunchedEffect(mediaState.isPlaying, mediaState.positionMs)`:
+     ```kotlin
+     var currentPosition by remember(mediaState.positionMs, mediaState.isPlaying) {
+         mutableLongStateOf(mediaState.positionMs)
+     }
+     LaunchedEffect(mediaState.isPlaying, mediaState.positionMs) {
+         if (mediaState.isPlaying && mediaState.durationMs > 0) {
+             val startWall = SystemClock.elapsedRealtime()
+             val startPos = mediaState.positionMs
+             while (isActive) {
+                 delay(500)
+                 currentPosition = (startPos + (SystemClock.elapsedRealtime() - startWall)).coerceAtMost(mediaState.durationMs)
+             }
+         }
+     }
+     ```
+
+### B18. Global Tile Recomposition on Notification Change
+- **Origin:** **New** (Introduced with Live Notifications).
+- **Files:** [`GridTile.kt`](app/src/main/java/tgo1014/gridlauncher/ui/composables/GridTile.kt), [`HomeScreen.kt`](app/src/main/java/tgo1014/gridlauncher/ui/home/HomeScreen.kt)
+- **Root Cause:**
+  `LocalAppNotifications` exposes a monolithic `Map<String, List<NotificationSender>>`. Because every `GridTile` observes `LocalAppNotifications.current`, a single notification update triggers a recomposition of all 30+ tiles.
+- **Fix Steps:**
+  1. Pass only the specific app's notification list into `GridTile` from `TileLayout`, or use `remember(pkg) { derivedStateOf { notificationsMap[pkg] } }`.
 
 ---
 
-## 4. Verification & Testing Strategy
-- **Weather Tile:** Test with airplane mode enabled, location permissions revoked, and location permissions granted. Confirm no Delhi coordinates are used unless user is in Delhi.
-- **Step Counter:** Test on device without sensor or with permission revoked; confirm clear UI feedback instead of silent 0.
-- **Currency Tile:** Test initial offline launch (shows `"--.--"` instead of hardcoded 84.40).
-- **Flashlight:** Toggle while another app holds the camera; verify UI state remains accurate.
-- **Default Launcher:** Test clicking "Set as Default" from the bottom sheet.
-- **Git Push Verification:** Maintain user constraint ("ask before build", no local `./gradlew`).
+## 3. Deep Dive: Early Architectural Bugs
+
+### B09. Weather Icons & Codes Mismatch
+- **Origin:** **Early** (Present in initial SmartTile design).
+- **Files:** [`SmartTile.kt`](app/src/main/java/tgo1014/gridlauncher/ui/composables/SmartTile.kt), [`WeatherManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/smarttile/WeatherManager.kt)
+- **Root Cause:**
+  1. `SmartTile.kt` selects `WeatherCloud` only when `weatherCode >= 50`. Codes 1–3 ("Partly Cloudy") and 45/48 ("Foggy") incorrectly show `WeatherSun`.
+  2. WMO weather codes 56, 57 (Freezing Drizzle), 66, 67 (Freezing Rain), and 85, 86 (Snow Showers) fall through to `"Sunny"`.
+- **Fix Steps:**
+  1. Map WMO codes correctly:
+     - 0 $\rightarrow$ Clear / Sunny
+     - 1, 2, 3 $\rightarrow$ Partly Cloudy (show Cloud icon)
+     - 45, 48 $\rightarrow$ Foggy (show Cloud icon)
+     - 51..67, 80..82 $\rightarrow$ Rain / Drizzle / Showers
+     - 71..77, 85..86 $\rightarrow$ Snow Showers
+     - 95..99 $\rightarrow$ Thunderstorm
+  2. Replace `SmartTileIcons.Search` fallback with a dedicated weather location indicator.
+
+### B10. Fragile Weather Network Fetching & Concurrency
+- **Origin:** **Early** (WeatherManager rewrite).
+- **File:** [`WeatherManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/smarttile/WeatherManager.kt)
+- **Root Cause:**
+  1. The 15-minute throttle check sits outside `fetchMutex.withLock`. Rapid parallel calls pass the check simultaneously.
+  2. `HttpURLConnection` lacks a check on `responseCode == HTTP_OK` and lacks `conn.disconnect()` in a `finally` block.
+  3. `fetchWeatherAsync()` is called in `init` before location permission is requested or granted.
+- **Fix Steps:**
+  1. Move the throttle check inside `fetchMutex.withLock`.
+  2. Enforce HTTP 200 response check and `conn.disconnect()` in `finally`.
+  3. Defer initial fetch until permissions are confirmed or cached coordinates exist.
+
+### B11. Step Counter False "No Sensor" & Rollover Failure
+- **Origin:** **Early** (StepCounterManager design).
+- **File:** [`StepCounterManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/smarttile/StepCounterManager.kt)
+- **Root Cause:**
+  1. `isSupported` is assigned `registered` (`Boolean`). If listener registration fails or has not yet completed, `isSupported` becomes `false`, falsely showing "No Sensor" on hardware with a valid step sensor.
+  2. Day rollover occurs only inside `onSensorChanged`. If the user does not walk in the morning, yesterday's steps remain displayed.
+  3. The sensor listener is never unregistered when the launcher is backgrounded.
+- **Fix Steps:**
+  1. Maintain `isSupported = (stepSensor != null)` independently of registration state.
+  2. Register broadcast receivers for date/time changes to zero out steps at midnight.
+  3. Unregister the sensor in `onStop` and register in `onStart`.
+
+### B14. UpdateAppListUseCase Marks Setup Done on Failure
+- **Origin:** **Early** (Grid initialization).
+- **File:** [`UpdateAppListUseCase.kt`](app/src/main/java/tgo1014/gridlauncher/domain/usecases/UpdateAppListUseCase.kt)
+- **Root Cause:**
+  1. `SMART_TILES_INITIALIZED` and `CALENDAR_TILE_INITIALIZED` are set to `true` before `appsManager.setGrid(...)` completes. If writing to Room fails, smart tiles are never saved and never re-pinned.
+  2. `GridItemType.WIDGET` tiles are stripped (`null`).
+  3. `packageManager.getPackageInfo(pkg, 0)` keeps disabled or unlaunchable system apps on the grid.
+- **Fix Steps:**
+  1. Write SharedPreferences flags only after `appsManager.setGrid(...)` succeeds.
+  2. Verify that packages have valid launcher activities via `getLaunchIntentForPackage(pkg) != null` before retaining them.
+  3. Preserve widget item types.
+
+### B15. Cloud Backup Restore Drops Smart Tiles
+- **Origin:** **Early** (Backup configuration).
+- **Files:** [`backup_rules.xml`](app/src/main/res/xml/backup_rules.xml), [`data_extraction_rules.xml`](app/src/main/res/xml/data_extraction_rules.xml), [`UpdateAppListUseCase.kt`](app/src/main/java/tgo1014/gridlauncher/domain/usecases/UpdateAppListUseCase.kt)
+- **Root Cause:**
+  `SMART_TILES_PREFS.xml` is included in cloud backups. If the user restores their device and the grid database is empty or reset, `SMART_TILES_INITIALIZED` is restored as `true`, preventing initial smart tile population.
+- **Fix Steps:**
+  1. Add `<exclude domain="sharedpref" path="SMART_TILES_PREFS.xml" />` to backup XML configurations.
+  2. In `UpdateAppListUseCase`, allow re-pinning if the current grid contains 0 smart tiles.
+
+### B17. Placeholder Search Icon Used Across Tiles
+- **Origin:** **New & Early**.
+- **File:** [`SmartTile.kt`](app/src/main/java/tgo1014/gridlauncher/ui/composables/SmartTile.kt)
+- **Root Cause:**
+  `SmartTileIcons.Search` is used as a fallback for both `MEDIA_PLAYER` and weather `isLocationMissing`.
+- **Fix Steps:**
+  1. Use `SmartTileIcons.MusicNote` for `MEDIA_PLAYER`.
+  2. Use a dedicated location disabled / cloud icon for weather without coordinates.
+
+### B19. Default Launcher Prompt Marked Asked Before Attempt
+- **Origin:** **Early** (MainActivity launcher prompt).
+- **File:** [`MainActivity.kt`](app/src/main/java/tgo1014/gridlauncher/ui/MainActivity.kt)
+- **Root Cause:**
+  `HAS_ASKED_DEFAULT_LAUNCHER` is committed to SharedPreferences before calling `startActivity(Settings.ACTION_HOME_SETTINGS)`. If `startActivity` throws an exception, `runCatching` hides it and the prompt is never attempted again.
+- **Fix Steps:**
+  1. Set `HAS_ASKED_DEFAULT_LAUNCHER = true` only after `startActivity` succeeds.
+  2. Provide fallback to `RoleManager.createRequestRoleIntent(RoleManager.ROLE_HOME)` on Android 10+.
+
+---
+
+## 4. Implementation & Verification Roadmap
+
+### Phase 1: High-Priority Dynamic Grid & Media Player Fixes (B01, B02, B03, B08, B16)
+- [ ] Implement collision-free seam detection in `DynamicGridTransformer`.
+- [ ] Add inverse coordinate translation in `HomeScreenViewModel.onTileEvent`.
+- [ ] Add ID `-999` guards across click, long click, and drag handlers.
+- [ ] Auto-retry `MediaPlaybackManager.registerListener()` on resume and notification connection.
+- [ ] Add elapsed wall-clock ticker in `LiveMediaTileContent` for real-time progress bar movement.
+
+### Phase 2: Live Notifications, Phone & Calendar Hardening (B04, B05, B06, B07, B12, B13, B18)
+- [ ] Always launch calendar app on calendar app tile click.
+- [ ] Fix UTC all-day event day comparison for UTC+ time zones.
+- [ ] Fix "Missed calls" caller name parsing and dialer notification filtering.
+- [ ] Ignore notification group summaries and debounce IPC updates.
+- [ ] Scope notification observers to avoid full-grid recomposition.
+- [ ] Register midnight and time-change broadcast receivers for calendar and step tiles.
+
+### Phase 3: Sensor, Weather, Grid Storage & System Stability (B09, B10, B11, B14, B15, B17, B19)
+- [ ] Fix WMO weather code mapping and move throttle inside mutex.
+- [ ] Preserve `isSupported = (stepSensor != null)` in `StepCounterManager`.
+- [ ] Commit setup prefs only after grid database writes succeed.
+- [ ] Exclude `SMART_TILES_PREFS.xml` from cloud backups.
+- [ ] Commit default launcher preference only after successful intent launch.

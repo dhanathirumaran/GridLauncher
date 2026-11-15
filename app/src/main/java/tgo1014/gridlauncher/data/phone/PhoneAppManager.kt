@@ -46,34 +46,43 @@ object PhoneAppManager {
     }
 
     fun extractCallerName(rawTitle: String?, rawText: String?): String {
-        val title = rawTitle?.trim()
-        val text = rawText?.trim()
-        val titleLower = title?.lowercase().orEmpty()
-        val textLower = text?.lowercase().orEmpty()
+        val title = rawTitle?.trim().orEmpty()
+        val text = rawText?.trim().orEmpty()
+        val titleLower = title.lowercase()
+        val textLower = text.lowercase()
 
-        return when {
-            titleLower.startsWith("missed call from ") -> {
-                title!!.substring(17).trim()
-            }
-            titleLower.contains("missed") && !text.isNullOrBlank() && !textLower.contains("missed") -> {
-                text
-            }
-            textLower.contains("missed") && !title.isNullOrBlank() && !titleLower.contains("missed") -> {
-                title
-            }
-            !title.isNullOrBlank() && !titleLower.contains("missed") -> {
-                title
-            }
-            !text.isNullOrBlank() && !textLower.contains("missed") -> {
-                text
-            }
-            !title.isNullOrBlank() && titleLower != "missed call" && !titleLower.matches(Regex("\\d+ missed calls?")) -> {
-                title
-            }
-            !text.isNullOrBlank() && textLower != "missed call" && !textLower.matches(Regex("\\d+ missed calls?")) -> {
-                text
-            }
-            else -> "Unknown Caller"
+        fun isGenericMissedCallPhrase(s: String): Boolean {
+            val lower = s.lowercase().trim()
+            return lower.isEmpty() ||
+                   lower == "missed call" ||
+                   lower == "missed calls" ||
+                   lower.matches(Regex("\\d+\\s+missed\\s+calls?")) ||
+                   lower.matches(Regex("missed\\s+call(s)?"))
         }
+
+        if (titleLower.startsWith("missed call from ")) {
+            val candidate = title.substring(17).trim()
+            if (candidate.isNotBlank()) return candidate
+        }
+
+        // If title is a genuine caller/contact name (and not a generic "Missed calls" string)
+        if (title.isNotBlank() && !isGenericMissedCallPhrase(title) && !titleLower.contains("missed call")) {
+            return title
+        }
+
+        // If title is generic (e.g. "Missed calls" or "2 missed calls"), check text for the contact name
+        if (text.isNotBlank() && !isGenericMissedCallPhrase(text) && !textLower.contains("missed call")) {
+            return text
+        }
+
+        // Try extracting phone number or name from text like "John Doe - 2:30 PM" or "John Doe • Mobile"
+        if (text.isNotBlank() && !isGenericMissedCallPhrase(text)) {
+            val cleaned = text.substringBefore(" - ").substringBefore(" • ").trim()
+            if (cleaned.isNotBlank() && !isGenericMissedCallPhrase(cleaned)) {
+                return cleaned
+            }
+        }
+
+        return "Unknown Caller"
     }
 }

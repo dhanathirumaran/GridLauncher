@@ -34,7 +34,7 @@ class UpdateAppListUseCase @Inject constructor(
             val installedPackageNames = installedApps.map { it.packageName }.toSet()
             val currentGrid = appsManager.homeGridFlow.firstOrNull().orEmpty()
 
-            // 1. Remove apps that were uninstalled from device and retain shortcuts & smart tiles
+            // 1. Remove apps that were uninstalled or disabled from device and retain shortcuts & smart tiles
             val installedAppMap = installedApps.associateBy { it.packageName }
             val seenPackages = mutableSetOf<String>()
             val filteredGrid = currentGrid.mapNotNull { item ->
@@ -47,21 +47,22 @@ class UpdateAppListUseCase @Inject constructor(
                             val freshApp = installedAppMap[pkg] ?: item.app
                             item.copy(app = freshApp)
                         } else if (seenPackages.add(pkg)) {
-                            // Check if genuinely uninstalled or merely omitted in a transient/delayed query
-                            val isStillInstalled = runCatching {
-                                context.packageManager.getPackageInfo(pkg, 0)
-                            }.isSuccess
-                            if (isStillInstalled) {
+                            // Check if genuinely uninstalled/disabled or merely omitted in a transient query
+                            val isStillLaunchable = runCatching {
+                                val info = context.packageManager.getApplicationInfo(pkg, 0)
+                                info.enabled && context.packageManager.getLaunchIntentForPackage(pkg) != null
+                            }.getOrDefault(false)
+
+                            if (isStillLaunchable) {
                                 item // Keep tile safely
                             } else {
-                                null // Confirmed uninstalled
+                                null // Confirmed uninstalled or disabled
                             }
                         } else {
                             null // Duplicate tile
                         }
                     }
-                    GridItemType.SHORTCUT, GridItemType.SMART_TILE -> item
-                    GridItemType.WIDGET -> null
+                    GridItemType.SHORTCUT, GridItemType.SMART_TILE, GridItemType.WIDGET -> item
                 }
             }
             val compactedGrid = GridPacker.compact(filteredGrid)
@@ -69,9 +70,12 @@ class UpdateAppListUseCase @Inject constructor(
                 appsManager.setGrid(compactedGrid)
             }
 
-            // 2. Pre-pin the smart tiles on first run
+            // 2. Pre-pin smart tiles on first run or if restored empty
             val prefs = context.getSharedPreferences("SMART_TILES_PREFS", Context.MODE_PRIVATE)
-            if (!prefs.getBoolean("SMART_TILES_INITIALIZED", false)) {
+            val hasSmartTiles = currentGrid.any { it.itemType == GridItemType.SMART_TILE }
+            val needsInit = !prefs.getBoolean("SMART_TILES_INITIALIZED", false) || !hasSmartTiles
+
+            if (needsInit) {
                 val allSmartTypes = listOf(
                     SmartTileType.FINDER,
                     SmartTileType.FLASHLIGHT,
@@ -96,10 +100,14 @@ class UpdateAppListUseCase @Inject constructor(
                     )
                     latestGrid.add(item)
                 }
-                prefs.edit().putBoolean("SMART_TILES_INITIALIZED", true).apply()
-                prefs.edit().putBoolean("CALENDAR_TILE_INITIALIZED", true).apply()
                 val compactedWithSmartTiles = GridPacker.compact(latestGrid)
                 appsManager.setGrid(compactedWithSmartTiles)
+
+                // Only commit preference flags after setGrid succeeds
+                prefs.edit()
+                    .putBoolean("SMART_TILES_INITIALIZED", true)
+                    .putBoolean("CALENDAR_TILE_INITIALIZED", true)
+                    .apply()
             } else if (!prefs.getBoolean("CALENDAR_TILE_INITIALIZED", false)) {
                 val latestGrid = appsManager.homeGridFlow.firstOrNull().orEmpty().toMutableList()
                 val existingSmartTypes = latestGrid.filter { it.itemType == GridItemType.SMART_TILE }.mapNotNull { it.smartTileType }.toSet()

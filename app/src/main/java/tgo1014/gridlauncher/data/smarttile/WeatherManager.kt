@@ -17,6 +17,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import javax.inject.Inject
@@ -51,7 +52,11 @@ class WeatherManager @Inject constructor(
     val weatherState = _weatherState.asStateFlow()
 
     init {
-        fetchWeatherAsync()
+        val hasCoarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasFine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (hasCoarse || hasFine || (prefs.contains("LAST_LAT") && prefs.contains("LAST_LON"))) {
+            fetchWeatherAsync()
+        }
     }
 
     fun fetchWeatherAsync(force: Boolean = false) {
@@ -60,13 +65,12 @@ class WeatherManager @Inject constructor(
 
     @SuppressLint("MissingPermission")
     suspend fun fetchWeather(force: Boolean = false) = withContext(Dispatchers.IO) {
-        // Throttle automatic refreshes to every 15 minutes unless forced
-        val now = System.currentTimeMillis()
-        if (!force && now - lastFetchTimeMs < 15 * 60 * 1000L && _weatherState.value.temperature != "--°") {
-            return@withContext
-        }
-
         fetchMutex.withLock {
+            val now = System.currentTimeMillis()
+            if (!force && now - lastFetchTimeMs < 15 * 60 * 1000L && _weatherState.value.temperature != "--°") {
+                return@withLock
+            }
+
             var lat: Double? = null
             var lon: Double? = null
 
@@ -118,12 +122,19 @@ class WeatherManager @Inject constructor(
                 return@withLock
             }
 
+            var conn: HttpURLConnection? = null
             try {
                 val url = URL("https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,weather_code&hourly=precipitation_probability,precipitation&forecast_hours=24&timezone=auto")
-                val conn = url.openConnection() as HttpURLConnection
+                conn = url.openConnection() as HttpURLConnection
                 conn.connectTimeout = 8000
                 conn.readTimeout = 8000
                 conn.setRequestProperty("User-Agent", "GridLauncher/1.0")
+
+                val responseCode = conn.responseCode
+                if (responseCode != HttpURLConnection.HTTP_OK) {
+                    throw IOException("Weather API responded with HTTP $responseCode")
+                }
+
                 val jsonStr = conn.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(jsonStr)
                 val current = json.getJSONObject("current")
@@ -195,6 +206,8 @@ class WeatherManager @Inject constructor(
                         isLocationMissing = false
                     )
                 }
+            } finally {
+                conn?.disconnect()
             }
         }
     }
@@ -204,11 +217,15 @@ class WeatherManager @Inject constructor(
             0 -> "Clear"
             1, 2, 3 -> "Partly Cloudy"
             45, 48 -> "Foggy"
-            51, 53, 55, 61, 63, 65 -> "Rainy"
+            51, 53, 55 -> "Drizzle"
+            56, 57 -> "Freezing Drizzle"
+            61, 63, 65 -> "Rainy"
+            66, 67 -> "Freezing Rain"
             71, 73, 75, 77 -> "Snowy"
             80, 81, 82 -> "Showers"
+            85, 86 -> "Snow Showers"
             95, 96, 99 -> "Thunderstorm"
-            else -> "Sunny"
+            else -> "Cloudy"
         }
     }
 

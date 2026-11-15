@@ -1,7 +1,10 @@
 package tgo1014.gridlauncher.data.smarttile
 
 import android.Manifest
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -44,7 +47,28 @@ class StepCounterManager @Inject constructor(
     private val _todaySteps = MutableStateFlow(0)
     val todaySteps = _todaySteps.asStateFlow()
 
+    private val midnightReceiver = object : BroadcastReceiver() {
+        override fun onReceive(ctx: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_DATE_CHANGED,
+                Intent.ACTION_TIME_CHANGED,
+                Intent.ACTION_TIMEZONE_CHANGED -> {
+                    refresh()
+                }
+            }
+        }
+    }
+
     init {
+        try {
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_DATE_CHANGED)
+                addAction(Intent.ACTION_TIME_CHANGED)
+                addAction(Intent.ACTION_TIMEZONE_CHANGED)
+            }
+            context.registerReceiver(midnightReceiver, filter)
+        } catch (_: Exception) {}
+
         refresh()
         startListening()
     }
@@ -69,20 +93,26 @@ class StepCounterManager @Inject constructor(
             return
         }
         if (!hasPerm) {
-            _stepCounterState.value = _stepCounterState.value.copy(hasPermission = false)
+            _stepCounterState.value = _stepCounterState.value.copy(isSupported = true, hasPermission = false)
             return
         }
 
-        val registered = stepSensor?.let {
+        stepSensor?.let {
             sensorManager?.unregisterListener(this)
             sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
-        } ?: false
+        }
 
         _stepCounterState.value = _stepCounterState.value.copy(
-            isSupported = registered,
+            isSupported = true,
             hasPermission = true
         )
         refresh()
+    }
+
+    fun stopListening() {
+        try {
+            sensorManager?.unregisterListener(this)
+        } catch (_: Exception) {}
     }
 
     override fun onSensorChanged(event: SensorEvent?) {

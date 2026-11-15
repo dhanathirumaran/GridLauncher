@@ -54,6 +54,52 @@ class DynamicGridTransformerTest {
     }
 
     @Test
+    fun computeEffectiveGrid_whenTileStraddlesInsertionY_advancesInsertionYToPreventOverlap() {
+        val baseGrid = listOf(
+            GridItem(id = 1, app = App("App 1"), width = 4, height = 2, x = 0, y = 0), // occupies y=0,1
+            GridItem(id = 2, app = App("App 2"), width = 4, height = 1, x = 4, y = 0), // occupies y=0
+            GridItem(id = 3, app = App("App 3"), width = 4, height = 2, x = 4, y = 1), // straddles: starts y=1, occupies y=1,2
+            GridItem(id = 4, app = App("App 4"), width = 4, height = 2, x = 0, y = 3)  // occupies y=3,4
+        )
+
+        val result = DynamicGridTransformer.computeEffectiveGrid(baseGrid, isMediaActive = true)
+
+        // Seam should advance past tile 3 (which ends at y=3)
+        val mediaTile = result.first { it.id == DynamicGridTransformer.MEDIA_TILE_ID }
+        assertEquals(3, mediaTile.y)
+
+        // Tiles 1, 2, 3 should remain in their original positions
+        assertEquals(0, result.first { it.id == 1 }.y)
+        assertEquals(0, result.first { it.id == 2 }.y)
+        assertEquals(1, result.first { it.id == 3 }.y)
+
+        // Tile 4 (which was at y=3) is shifted down by 2 rows to y=5
+        assertEquals(5, result.first { it.id == 4 }.y)
+    }
+
+    @Test
+    fun toBaseGridY_translatesCoordinatesCorrectly() {
+        val baseGrid = listOf(
+            GridItem(id = 1, app = App("App 1"), width = 4, height = 2, x = 0, y = 0),
+            GridItem(id = 2, app = App("App 2"), width = 4, height = 2, x = 4, y = 0),
+            GridItem(id = 3, app = App("App 3"), width = 2, height = 2, x = 0, y = 2)
+        )
+
+        // InsertionY is 2, media tile is at y=2..3
+        // If media is inactive: 1:1 mapping
+        assertEquals(4, DynamicGridTransformer.toBaseGridY(4, baseGrid, isMediaActive = false))
+
+        // If media is active:
+        // Rows above media (y < 2) unchanged
+        assertEquals(0, DynamicGridTransformer.toBaseGridY(0, baseGrid, isMediaActive = true))
+        assertEquals(1, DynamicGridTransformer.toBaseGridY(1, baseGrid, isMediaActive = true))
+
+        // Rows shifted below media (y >= 4) shifted back by 2
+        assertEquals(2, DynamicGridTransformer.toBaseGridY(4, baseGrid, isMediaActive = true))
+        assertEquals(3, DynamicGridTransformer.toBaseGridY(5, baseGrid, isMediaActive = true))
+    }
+
+    @Test
     fun computeEffectiveGrid_whenRow1HasHeight1_insertsMediaTileAtY1() {
         val baseGrid = listOf(
             GridItem(id = 1, app = App("App 1"), width = 8, height = 1, x = 0, y = 0),

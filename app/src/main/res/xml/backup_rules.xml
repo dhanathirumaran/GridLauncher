@@ -4,4 +4,5 @@
     <exclude domain="sharedpref" path="WEATHER_PREFS.xml" />
     <exclude domain="sharedpref" path="CURRENCY_PREFS.xml" />
     <exclude domain="sharedpref" path="LAUNCHER_PREFS.xml" />
+    <exclude domain="sharedpref" path="SMART_TILES_PREFS.xml" />
 </full-backup-content>

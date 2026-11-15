@@ -45,5 +45,8 @@ class PhoneAppManagerTest {
         assertEquals("Unknown Caller", PhoneAppManager.extractCallerName(null, null))
         assertEquals("Unknown Caller", PhoneAppManager.extractCallerName("Missed call", null))
         assertEquals("Unknown Caller", PhoneAppManager.extractCallerName("1 missed call", ""))
+        assertEquals("Bob", PhoneAppManager.extractCallerName("Missed calls", "Bob"))
+        assertEquals("Unknown Caller", PhoneAppManager.extractCallerName("Missed calls", null))
+        assertEquals("Unknown Caller", PhoneAppManager.extractCallerName("Missed calls", ""))
     }
 }

@@ -1,14 +1,18 @@
 package tgo1014.gridlauncher.data.calendar
 
 import android.Manifest
+import android.content.BroadcastReceiver
 import android.content.ContentUris
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.CalendarContract
+import android.text.format.DateFormat
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -17,10 +21,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
-import java.util.Locale
+import java.util.TimeZone
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -29,18 +32,32 @@ class CalendarEventManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     companion object {
-        fun isCalendarApp(packageName: String): Boolean {
+        val KNOWN_CALENDAR_PACKAGES = setOf(
+            "com.google.android.calendar",
+            "com.samsung.android.calendar",
+            "com.android.calendar",
+            "com.simplemobiletools.calendar",
+            "com.simplemobiletools.calendar.pro",
+            "com.appgenix.bizcal",
+            "org.lineageos.etar",
+            "ws.xsoh.etar",
+            "com.microsoft.office.outlook",
+            "com.digibites.calendar",
+            "com.anydo"
+        )
+
+        fun isCalendarApp(packageName: String, context: Context? = null): Boolean {
             val lower = packageName.lowercase()
-            return lower in listOf(
-                "com.google.android.calendar",
-                "com.samsung.android.calendar",
-                "com.android.calendar",
-                "com.simplemobiletools.calendar",
-                "com.simplemobiletools.calendar.pro",
-                "com.appgenix.bizcal",
-                "org.lineageos.etar",
-                "ws.xsoh.etar"
-            ) || lower.contains("calendar")
+            if (lower in KNOWN_CALENDAR_PACKAGES) return true
+            if (lower.endsWith(".calendar") || lower.endsWith(".calendar.pro")) return true
+            if (context != null) {
+                runCatching {
+                    val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR)
+                    val resolveInfo = context.packageManager.resolveActivity(intent, 0)
+                    if (resolveInfo?.activityInfo?.packageName == packageName) return true
+                }
+            }
+            return false
         }
     }
 
@@ -48,6 +65,8 @@ class CalendarEventManager @Inject constructor(
 
     private val _events = MutableStateFlow<List<CalendarEvent>>(emptyList())
     val events = _events.asStateFlow()
+
+    private var rawTodayEvents = listOf<CalendarEvent>()
 
     private val _hasPermission = MutableStateFlow(hasPermission())
     val hasPermission = _hasPermission.asStateFlow()
@@ -61,7 +80,32 @@ class CalendarEventManager @Inject constructor(
         }
     }
 
+    private val timeTickReceiver = object : BroadcastReceiver() {
+        override fun onReceive(ctx: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_TIME_TICK -> {
+                    purgeExpiredEvents()
+                }
+                Intent.ACTION_TIME_CHANGED,
+                Intent.ACTION_DATE_CHANGED,
+                Intent.ACTION_TIMEZONE_CHANGED -> {
+                    refresh()
+                }
+            }
+        }
+    }
+
     init {
+        try {
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_TIME_TICK)
+                addAction(Intent.ACTION_TIME_CHANGED)
+                addAction(Intent.ACTION_DATE_CHANGED)
+                addAction(Intent.ACTION_TIMEZONE_CHANGED)
+            }
+            context.registerReceiver(timeTickReceiver, filter)
+        } catch (_: Exception) {}
+
         refresh()
     }
 
@@ -77,6 +121,7 @@ class CalendarEventManager @Inject constructor(
         _hasPermission.value = granted
         if (!granted) {
             _events.value = emptyList()
+            rawTodayEvents = emptyList()
             return
         }
 
@@ -85,6 +130,12 @@ class CalendarEventManager @Inject constructor(
         scope.launch {
             queryTodayEvents()
         }
+    }
+
+    private fun purgeExpiredEvents() {
+        val now = System.currentTimeMillis()
+        val active = rawTodayEvents.filter { it.isAllDay || it.endTime >= now }
+        _events.value = active
     }
 
     private fun registerObserverIfNeeded() {
@@ -121,9 +172,13 @@ class CalendarEventManager @Inject constructor(
             }
             val endOfDay = calendar.timeInMillis
 
+            // Expand query window by 24h to capture all-day events stored in UTC across any timezone
+            val queryStart = startOfDay - 86_400_000L
+            val queryEnd = endOfDay + 86_400_000L
+
             val builder = CalendarContract.Instances.CONTENT_URI.buildUpon()
-            ContentUris.appendId(builder, startOfDay)
-            ContentUris.appendId(builder, endOfDay)
+            ContentUris.appendId(builder, queryStart)
+            ContentUris.appendId(builder, queryEnd)
             val uri = builder.build()
 
             val projection = arrayOf(
@@ -136,7 +191,7 @@ class CalendarEventManager @Inject constructor(
             )
 
             val eventList = mutableListOf<CalendarEvent>()
-            val timeFormatter = SimpleDateFormat("h:mm a", Locale.getDefault())
+            val timeFormatter = DateFormat.getTimeFormat(context)
 
             context.contentResolver.query(
                 uri,
@@ -160,8 +215,17 @@ class CalendarEventManager @Inject constructor(
                     val allDay = if (allDayIdx >= 0) cursor.getInt(allDayIdx) == 1 else false
                     val color = if (colorIdx >= 0 && !cursor.isNull(colorIdx)) cursor.getInt(colorIdx) else null
 
-                    // Only show ongoing or upcoming events for today
-                    if (end < now && !allDay) continue
+                    // Determine if this instance belongs to "today" in local time
+                    val isForToday = if (allDay) {
+                        val utcCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { timeInMillis = begin }
+                        val localCal = Calendar.getInstance().apply { timeInMillis = now }
+                        utcCal.get(Calendar.YEAR) == localCal.get(Calendar.YEAR) &&
+                        utcCal.get(Calendar.DAY_OF_YEAR) == localCal.get(Calendar.DAY_OF_YEAR)
+                    } else {
+                        (begin in startOfDay..endOfDay) || (begin <= startOfDay && end >= startOfDay)
+                    }
+
+                    if (!isForToday) continue
 
                     val title = if (!rawTitle.isNullOrBlank()) rawTitle.trim() else "(No title)"
                     val formattedTime = if (allDay) {
@@ -184,9 +248,11 @@ class CalendarEventManager @Inject constructor(
                 }
             }
 
-            _events.value = eventList.sortedWith(
-                compareBy<CalendarEvent> { it.isAllDay }.thenBy { it.startTime }
+            val sorted = eventList.sortedWith(
+                compareBy<CalendarEvent> { !it.isAllDay }.thenBy { it.startTime }
             )
+            rawTodayEvents = sorted
+            purgeExpiredEvents()
         } catch (e: Exception) {
             // Guard against SecurityException or SQLite errors
         }

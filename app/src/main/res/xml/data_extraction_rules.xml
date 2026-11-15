@@ -5,11 +5,13 @@
         <exclude domain="sharedpref" path="WEATHER_PREFS.xml" />
         <exclude domain="sharedpref" path="CURRENCY_PREFS.xml" />
         <exclude domain="sharedpref" path="LAUNCHER_PREFS.xml" />
+        <exclude domain="sharedpref" path="SMART_TILES_PREFS.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="STEP_COUNTER_PREFS.xml" />
         <exclude domain="sharedpref" path="WEATHER_PREFS.xml" />
         <exclude domain="sharedpref" path="CURRENCY_PREFS.xml" />
         <exclude domain="sharedpref" path="LAUNCHER_PREFS.xml" />
+        <exclude domain="sharedpref" path="SMART_TILES_PREFS.xml" />
     </device-transfer>
 </data-extraction-rules>

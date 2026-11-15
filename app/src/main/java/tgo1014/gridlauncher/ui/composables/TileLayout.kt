@@ -177,7 +177,7 @@ fun TileLayout(
                 )
             }
         ) { tileItem ->
-            val isBeingEdited = tileItem.id == itemBeingEdited?.id
+            val isBeingEdited = tileItem.id != tgo1014.gridlauncher.domain.DynamicGridTransformer.MEDIA_TILE_ID && tileItem.id == itemBeingEdited?.id
 
             if (!isBeingEdited) {
                 Box(
@@ -185,12 +185,20 @@ fun TileLayout(
                         .padding(2.dp)
                         .fillMaxSize()
                 ) {
+                    val allNotifications = LocalAppNotifications.current
+                    val tileNotifications = if (tileItem.itemType == tgo1014.gridlauncher.ui.models.GridItemType.APP) {
+                        allNotifications[tileItem.app.packageName]
+                    } else null
+
                     GridTile(
                         item = tileItem,
                         tileSettings = tileSettings,
                         isEditMode = false,
+                        liveNotifications = tileNotifications,
                         onItemClicked = { clicked ->
-                            if (itemBeingEdited != null) {
+                            if (clicked.id == tgo1014.gridlauncher.domain.DynamicGridTransformer.MEDIA_TILE_ID) {
+                                onItemClicked(clicked)
+                            } else if (itemBeingEdited != null) {
                                 if (clicked.id != itemBeingEdited.id) {
                                     onItemLongClicked(clicked)
                                 }

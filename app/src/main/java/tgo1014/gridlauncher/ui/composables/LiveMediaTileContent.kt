@@ -21,6 +21,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import android.os.SystemClock
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -166,7 +174,21 @@ fun LiveMediaTileContent(
 
             // Sleek Progress Indicator Bar at Bottom
             if (mediaState.durationMs > 0) {
-                val progress = (mediaState.positionMs.toFloat() / mediaState.durationMs.toFloat()).coerceIn(0f, 1f)
+                var currentPosition by remember(mediaState.positionMs, mediaState.isPlaying) {
+                    mutableLongStateOf(mediaState.positionMs)
+                }
+                LaunchedEffect(mediaState.isPlaying, mediaState.positionMs) {
+                    if (mediaState.isPlaying && mediaState.durationMs > 0) {
+                        val startWall = SystemClock.elapsedRealtime()
+                        val startPos = mediaState.positionMs
+                        while (isActive) {
+                            delay(500)
+                            val elapsed = SystemClock.elapsedRealtime() - startWall
+                            currentPosition = (startPos + elapsed).coerceAtMost(mediaState.durationMs)
+                        }
+                    }
+                }
+                val progress = (currentPosition.toFloat() / mediaState.durationMs.toFloat()).coerceIn(0f, 1f)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
