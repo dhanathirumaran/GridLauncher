@@ -3,11 +3,13 @@ package tgo1014.gridlauncher.data.smarttile
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothProfile
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import android.os.Build
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +34,8 @@ class BatteryTileManager @Inject constructor(
     private val _state = MutableStateFlow(BatteryTileState())
     val state = _state.asStateFlow()
 
+    private var connectedDeviceAddress: String? = null
+
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context?, intent: Intent?) {
             updateBattery(intent)
@@ -43,7 +47,7 @@ class BatteryTileManager @Inject constructor(
             addAction(Intent.ACTION_BATTERY_CHANGED)
             addAction(Intent.ACTION_POWER_CONNECTED)
             addAction(Intent.ACTION_POWER_DISCONNECTED)
-            addAction("android.bluetooth.device.action.BATTERY_LEVEL_CHANGED")
+            addAction(ACTION_BATTERY_LEVEL_CHANGED)
             addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
             addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
         }
@@ -53,7 +57,11 @@ class BatteryTileManager @Inject constructor(
 
     @SuppressLint("MissingPermission")
     fun updateBattery(intent: Intent? = null) {
-        val batteryIntent = intent ?: context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val batteryIntent = if (intent?.action == Intent.ACTION_BATTERY_CHANGED) {
+            intent
+        } else {
+            context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        }
         val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
         val status = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
@@ -70,22 +78,73 @@ class BatteryTileManager @Inject constructor(
         }
 
         // Check for connected Bluetooth devices (headphones, keyboards, etc.)
-        var btName: String? = null
-        var btBattery: Int? = null
-        var isConnectedBt = false
+        var btName = _state.value.bluetoothDeviceName
+        var btBattery = _state.value.bluetoothDeviceBattery
+        var isConnectedBt = _state.value.isConnectedToBluetoothDevice
 
-        runCatching {
-            val bm = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-            val adapter = bm?.adapter
-            if (adapter != null && adapter.isEnabled) {
-                val bonded = adapter.bondedDevices.orEmpty()
-                for (device in bonded) {
+        val action = intent?.action
+        when (action) {
+            BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
+                val disconnectedDevice = getDeviceFromIntent(intent)
+                if (disconnectedDevice == null || disconnectedDevice.address == connectedDeviceAddress) {
+                    connectedDeviceAddress = null
+                    btName = null
+                    btBattery = null
+                    isConnectedBt = false
+                }
+            }
+            ACTION_BATTERY_LEVEL_CHANGED -> {
+                val batteryLevel = intent.getIntExtra(EXTRA_BATTERY_LEVEL, -1)
+                val device = getDeviceFromIntent(intent)
+                if (batteryLevel in 0..100 && device != null) {
+                    connectedDeviceAddress = device.address
+                    btName = getDeviceName(device)
+                    btBattery = batteryLevel
+                    isConnectedBt = true
+                }
+            }
+            BluetoothDevice.ACTION_ACL_CONNECTED -> {
+                val device = getDeviceFromIntent(intent)
+                if (device != null) {
+                    connectedDeviceAddress = device.address
+                    btName = getDeviceName(device)
                     val batteryLevel = getDeviceBattery(device)
-                    if (batteryLevel != null && batteryLevel >= 0) {
-                        btName = device.alias ?: device.name ?: "Accessory"
-                        btBattery = batteryLevel
-                        isConnectedBt = true
-                        break
+                    btBattery = if (batteryLevel in 0..100) batteryLevel else null
+                    isConnectedBt = true
+                }
+            }
+            else -> {
+                // Periodic refresh or startup: check active audio profile connections
+                runCatching {
+                    val bm = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+                    val adapter = bm?.adapter
+                    if (adapter != null && adapter.isEnabled) {
+                        val headsetConnected = adapter.getProfileConnectionState(BluetoothProfile.HEADSET) == BluetoothProfile.STATE_CONNECTED
+                        val a2dpConnected = adapter.getProfileConnectionState(BluetoothProfile.A2DP) == BluetoothProfile.STATE_CONNECTED
+                        val isAudioConnected = headsetConnected || a2dpConnected
+
+                        if (isAudioConnected) {
+                            val bonded = adapter.bondedDevices.orEmpty()
+                            for (device in bonded) {
+                                val batteryLevel = getDeviceBattery(device)
+                                if (batteryLevel != null && batteryLevel in 0..100) {
+                                    btName = getDeviceName(device)
+                                    btBattery = batteryLevel
+                                    isConnectedBt = true
+                                    connectedDeviceAddress = device.address
+                                    break
+                                }
+                            }
+                        } else if (connectedDeviceAddress == null) {
+                            btName = null
+                            btBattery = null
+                            isConnectedBt = false
+                        }
+                    } else {
+                        btName = null
+                        btBattery = null
+                        isConnectedBt = false
+                        connectedDeviceAddress = null
                     }
                 }
             }
@@ -101,6 +160,24 @@ class BatteryTileManager @Inject constructor(
         )
     }
 
+    private fun getDeviceFromIntent(intent: Intent?): BluetoothDevice? {
+        if (intent == null) return null
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+        }
+    }
+
+    private fun getDeviceName(device: BluetoothDevice): String {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            device.alias ?: device.name ?: "Accessory"
+        } else {
+            device.name ?: "Accessory"
+        }
+    }
+
     private fun getDeviceBattery(device: BluetoothDevice): Int? {
         return runCatching {
             val method = device.javaClass.getMethod("getBatteryLevel")
@@ -110,6 +187,57 @@ class BatteryTileManager @Inject constructor(
     }
 
     companion object {
+        const val ACTION_BATTERY_LEVEL_CHANGED = "android.bluetooth.device.action.BATTERY_LEVEL_CHANGED"
+        const val EXTRA_BATTERY_LEVEL = "android.bluetooth.device.extra.BATTERY_LEVEL"
+
+        data class BluetoothBatteryResult(
+            val isConnected: Boolean,
+            val name: String?,
+            val battery: Int?
+        )
+
+        fun evaluateBluetoothState(
+            action: String?,
+            extraBatteryLevel: Int,
+            deviceName: String?,
+            isAudioConnected: Boolean,
+            cachedBatteryLevel: Int?,
+            currentIsConnected: Boolean,
+            currentName: String?,
+            currentBattery: Int?
+        ): BluetoothBatteryResult {
+            if (action == BluetoothDevice.ACTION_ACL_DISCONNECTED) {
+                return BluetoothBatteryResult(isConnected = false, name = null, battery = null)
+            }
+            if (action == ACTION_BATTERY_LEVEL_CHANGED && extraBatteryLevel in 0..100) {
+                return BluetoothBatteryResult(
+                    isConnected = true,
+                    name = deviceName ?: "Accessory",
+                    battery = extraBatteryLevel
+                )
+            }
+            if (action == BluetoothDevice.ACTION_ACL_CONNECTED) {
+                return BluetoothBatteryResult(
+                    isConnected = true,
+                    name = deviceName ?: "Accessory",
+                    battery = if (extraBatteryLevel in 0..100) extraBatteryLevel else cachedBatteryLevel
+                )
+            }
+            if (isAudioConnected) {
+                return BluetoothBatteryResult(
+                    isConnected = true,
+                    name = deviceName ?: currentName ?: "Accessory",
+                    battery = cachedBatteryLevel ?: currentBattery
+                )
+            }
+            // If audio profile is not connected and no active ACL link, reject offline bonded cache
+            return BluetoothBatteryResult(
+                isConnected = false,
+                name = null,
+                battery = null
+            )
+        }
+
         fun calculateChargingWatts(status: Int, voltageMv: Int, currentUa: Int): Int {
             if (status != BatteryManager.BATTERY_STATUS_CHARGING) {
                 return 0

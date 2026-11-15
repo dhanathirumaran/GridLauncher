@@ -37,6 +37,7 @@ The issues identified across the codebase fall into two distinct categories:
 | **B22 (B3)** | **Step counter drops steps between boot and first event after reboot** | **Early** (StepCounterManager) | High | Fixed |
 | **B23 (B4)** | **Temperature truncation (`toInt()` vs `roundToInt()`)** | **Early** (WeatherManager) | Low | Fixed |
 | **B24 (B5)** | **Rain forecast reports "Raining now" with 0mm precipitation** | **New** (WeatherManager) | Medium | Fixed |
+| **B25 (B6)** | **Bluetooth battery hidden API reflection & offline bonded device display** | **Early** (BatteryTileManager) | Medium | Fixed |
 
 ---
 
@@ -372,6 +373,19 @@ The issues identified across the codebase fall into two distinct categories:
      val tempStr = "${temp.roundToInt()}°"
      ```
 
+### B25 (B6). Bluetooth Battery Hidden API Reflection & Offline Bonded Device Display
+- **Origin:** **Early** (Present since `BatteryTileManager.kt` creation in commit `47dc046`).
+- **File:** [`BatteryTileManager.kt`](app/src/main/java/tgo1014/gridlauncher/data/smarttile/BatteryTileManager.kt)
+- **Root Cause:**
+  1. `getBatteryLevel()` is a hidden `@hide` / `@SystemApi` non-SDK interface accessed via reflection, restricted on Android 9+ and fragmented across OEM ROMs.
+  2. Iterating over `adapter.bondedDevices` returned offline paired accessories with stale cached battery levels, causing disconnected earbuds in a case to be displayed as actively "Connected".
+  3. Bluetooth broadcasts (`ACTION_BATTERY_LEVEL_CHANGED`, `ACTION_ACL_DISCONNECTED`) ignored intent extras and caused `updateBattery` to parse `-1` for phone battery and charging status.
+- **Fix Steps:**
+  1. Read battery directly from broadcast extra `"android.bluetooth.device.extra.BATTERY_LEVEL"` with zero reflection.
+  2. Verify active audio profile connections (`BluetoothProfile.HEADSET`, `BluetoothProfile.A2DP`) before displaying bonded devices.
+  3. Clear accessory state immediately upon `BluetoothDevice.ACTION_ACL_DISCONNECTED`.
+  4. Ensure phone battery level and charging status always use the sticky `ACTION_BATTERY_CHANGED` intent during Bluetooth broadcasts.
+
 ---
 
 ## 4. Implementation & Verification Roadmap
@@ -398,9 +412,10 @@ The issues identified across the codebase fall into two distinct categories:
 - [x] Exclude `SMART_TILES_PREFS.xml` from cloud backups.
 - [x] Commit default launcher preference only after successful intent launch.
 
-### Phase 4: Sensor, Telemetry & Weather Precision (B20–B24 / B1–B5)
+### Phase 4: Sensor, Telemetry, Bluetooth & Weather Precision (B20–B25 / B1–B6)
 - [x] Fix battery wattage microampere heuristic and exclude `BATTERY_STATUS_FULL` from active wattage (`BatteryTileManager.kt`).
 - [x] Preserve early-morning steps on day rollover by anchoring `BASELINE_STEPS` to yesterday's `lastRaw` (`StepCounterManager.kt`).
 - [x] Set `baseline = 0` upon reboot detection to preserve steps walked prior to first event (`StepCounterManager.kt`).
 - [x] Replace `temp.toInt()` with `temp.roundToInt()` in `WeatherManager.kt`.
 - [x] Enforce actual precipitation threshold ($\ge 0.1\text{ mm}$) for "Raining now" status in `WeatherManager.kt`.
+- [x] Read Bluetooth battery from broadcast extras without reflection and check active audio profile connection (`BatteryTileManager.kt`).

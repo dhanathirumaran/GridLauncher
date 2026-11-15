@@ -62,4 +62,74 @@ class BatteryTileManagerTest {
         )
         assertEquals(6, watts)
     }
+
+    @Test
+    fun evaluateBluetoothState_whenDisconnectedAction_clearsAccessoryState() {
+        val result = BatteryTileManager.evaluateBluetoothState(
+            action = "android.bluetooth.device.action.ACL_DISCONNECTED",
+            extraBatteryLevel = -1,
+            deviceName = "Sony WH-1000XM4",
+            isAudioConnected = false,
+            cachedBatteryLevel = 85,
+            currentIsConnected = true,
+            currentName = "Sony WH-1000XM4",
+            currentBattery = 85
+        )
+        assertEquals(false, result.isConnected)
+        assertEquals(null, result.name)
+        assertEquals(null, result.battery)
+    }
+
+    @Test
+    fun evaluateBluetoothState_whenBatteryLevelChangedBroadcast_readsBroadcastExtraWithoutReflection() {
+        val result = BatteryTileManager.evaluateBluetoothState(
+            action = BatteryTileManager.ACTION_BATTERY_LEVEL_CHANGED,
+            extraBatteryLevel = 75,
+            deviceName = "Pixel Buds Pro",
+            isAudioConnected = true,
+            cachedBatteryLevel = null,
+            currentIsConnected = false,
+            currentName = null,
+            currentBattery = null
+        )
+        assertEquals(true, result.isConnected)
+        assertEquals("Pixel Buds Pro", result.name)
+        assertEquals(75, result.battery)
+    }
+
+    @Test
+    fun evaluateBluetoothState_whenNotAudioConnected_rejectsOfflineBondedDevices() {
+        // Earbuds are in the case (offline). Audio profile is disconnected.
+        // It should NOT treat cached battery level from bonded history as connected!
+        val result = BatteryTileManager.evaluateBluetoothState(
+            action = null,
+            extraBatteryLevel = -1,
+            deviceName = "Offline Earbuds",
+            isAudioConnected = false,
+            cachedBatteryLevel = 90,
+            currentIsConnected = false,
+            currentName = null,
+            currentBattery = null
+        )
+        assertEquals(false, result.isConnected)
+        assertEquals(null, result.name)
+        assertEquals(null, result.battery)
+    }
+
+    @Test
+    fun evaluateBluetoothState_whenAudioConnected_usesConnectedDeviceBattery() {
+        val result = BatteryTileManager.evaluateBluetoothState(
+            action = null,
+            extraBatteryLevel = -1,
+            deviceName = "Galaxy Buds2",
+            isAudioConnected = true,
+            cachedBatteryLevel = 80,
+            currentIsConnected = false,
+            currentName = null,
+            currentBattery = null
+        )
+        assertEquals(true, result.isConnected)
+        assertEquals("Galaxy Buds2", result.name)
+        assertEquals(80, result.battery)
+    }
 }
