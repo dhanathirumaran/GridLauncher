@@ -15,6 +15,7 @@ import kotlinx.coroutines.withContext
 import tgo1014.gridlauncher.domain.AppIconManager
 import tgo1014.gridlauncher.domain.models.DispatcherProvider
 import tgo1014.gridlauncher.domain.models.Icon
+import com.materialkolor.ktx.isLight
 import java.io.File
 import java.io.FileOutputStream
 import javax.inject.Inject
@@ -50,15 +51,32 @@ class AppIconManagerImpl @Inject constructor(
         }
     }
 
+    private val iconsDir: File
+        get() = File(context.filesDir, "icons").apply { if (!exists()) mkdirs() }
+
+    private fun getIconFile(fileName: String): File {
+        val file = File(iconsDir, fileName)
+        if (!file.exists()) {
+            val legacyCache = File(context.cacheDir, fileName)
+            if (legacyCache.exists()) {
+                runCatching { legacyCache.copyTo(file, overwrite = true) }
+            }
+        }
+        return file
+    }
+
     private fun getIconFromCache(packageName: String): Icon? {
-        val icon = File(context.cacheDir, packageName.appIconPath)
+        val icon = getIconFile(packageName.appIconPath)
         if (!icon.exists()) {
             return null
         }
-        val bg = File(context.cacheDir, packageName.appBgPath)
+        val bg = getIconFile(packageName.appBgPath)
+        val bgFile = bg.takeIf { it.exists() }
+        val isLight = bgFile?.toBitmap()?.getDominantColor()?.isLight() == true
         return Icon(
             iconFilePath = icon.absolutePath,
-            bgFilePath = bg.takeIf { it.exists() }?.absolutePath
+            bgFilePath = bgFile?.absolutePath,
+            isLightBackground = isLight
         )
     }
 
@@ -73,9 +91,13 @@ class AppIconManagerImpl @Inject constructor(
 
     private suspend fun IconBitmap.cache(packageName: String): Icon {
         return withContext(Dispatchers.IO) {
+            val iconFile = this@cache.icon?.cacheImage(packageName.appIconPath)
+            val bgFile = this@cache.bg?.cacheImage(packageName.appBgPath)
+            val isLight = this@cache.bg?.getDominantColor()?.isLight() == true
             Icon(
-                iconFilePath = this@cache.icon?.cacheImage(packageName.appIconPath)?.absolutePath,
-                bgFilePath = this@cache.bg?.cacheImage(packageName.appBgPath)?.absolutePath,
+                iconFilePath = iconFile?.absolutePath,
+                bgFilePath = bgFile?.absolutePath,
+                isLightBackground = isLight
             )
         }
     }
@@ -84,14 +106,14 @@ class AppIconManagerImpl @Inject constructor(
     private val String.appBgPath get() = "${this}_bg_mono.png"
 
     private fun Bitmap.cacheImage(fileName: String): File {
-        val cacheFile = File(context.cacheDir, fileName)
-        if (cacheFile.exists()) {
-            cacheFile.delete()
+        val destFile = File(iconsDir, fileName)
+        if (destFile.exists()) {
+            destFile.delete()
         }
-        FileOutputStream(cacheFile).use { fos ->
+        FileOutputStream(destFile).use { fos ->
             this.compress(Bitmap.CompressFormat.PNG, 100, fos)
         }
-        return cacheFile
+        return destFile
     }
 
     private fun getDefaultIconFromSystem(packageName: String): IconBitmap {

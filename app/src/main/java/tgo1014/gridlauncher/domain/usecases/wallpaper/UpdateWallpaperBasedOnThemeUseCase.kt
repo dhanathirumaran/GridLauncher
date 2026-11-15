@@ -16,21 +16,29 @@ class UpdateWallpaperBasedOnThemeUseCase @Inject constructor(
     private val settingsRepository: SettingsRepository,
 ) {
     suspend operator fun invoke() = runCatching {
-        val file = getWallpaperFileForTheme()
         val settings = settingsRepository.tileSettingsFlow.first()
-        settingsRepository.updateSettings(
-            settings.copy(wallpaperPath = file.absolutePath)
-        )
+        if (settings.wallpaperPath == null || !context.wallpaperFile.exists()) {
+            return@runCatching
+        }
+        val file = getWallpaperFileForTheme()
+        if (file.exists()) {
+            settingsRepository.updateSettings(
+                settings.copy(wallpaperPath = file.absolutePath)
+            )
+        }
     }.onFailure(::println)
 
     private fun getWallpaperFileForTheme(): File = when {
         context.isSystemDarkTheme && context.wallpaperDarkFile.exists() -> context.wallpaperDarkFile
-        context.isSystemDarkTheme -> {
-            val bitmap = context.wallpaperFile.toBitmap()!!
-            bitmap.reduceBitmapBrightness().saveToFile(context.wallpaperDarkFile)
-            context.wallpaperDarkFile
+        context.isSystemDarkTheme && context.wallpaperFile.exists() -> {
+            val bitmap = context.wallpaperFile.toBitmap()
+            if (bitmap != null) {
+                bitmap.reduceBitmapBrightness().saveToFile(context.wallpaperDarkFile)
+                context.wallpaperDarkFile
+            } else {
+                context.wallpaperFile
+            }
         }
-
         else -> context.wallpaperFile
     }
 

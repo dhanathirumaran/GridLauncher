@@ -9,10 +9,24 @@ import dev.chrisbanes.haze.HazeTint
 import java.io.File
 
 val Context.wallpaperFile: File
-    get() = File(cacheDir, "wallpaper.png")
+    get() {
+        val filesDirFile = File(filesDir, "wallpaper.png")
+        val cacheDirFile = File(cacheDir, "wallpaper.png")
+        if (!filesDirFile.exists() && cacheDirFile.exists()) {
+            runCatching { cacheDirFile.copyTo(filesDirFile, overwrite = true) }
+        }
+        return filesDirFile
+    }
 
 val Context.wallpaperDarkFile: File
-    get() = File(cacheDir, "wallpaperDark.png")
+    get() {
+        val filesDirFile = File(filesDir, "wallpaperDark.png")
+        val cacheDirFile = File(cacheDir, "wallpaperDark.png")
+        if (!filesDirFile.exists() && cacheDirFile.exists()) {
+            runCatching { cacheDirFile.copyTo(filesDirFile, overwrite = true) }
+        }
+        return filesDirFile
+    }
 
 
 val AppHazeStyle: HazeStyle

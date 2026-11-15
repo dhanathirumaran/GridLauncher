@@ -19,6 +19,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -66,6 +70,11 @@ private fun SettingsBottomSheet(
             }
         }
     )
+
+    var blurSlider by remember(tileSettings.blurRadius) { mutableStateOf(tileSettings.blurRadius.toFloat()) }
+    var tintSlider by remember(tileSettings.tintAlpha) { mutableStateOf(tileSettings.tintAlpha) }
+    var cornerSlider by remember(tileSettings.cornerRadius) { mutableStateOf(tileSettings.cornerRadius.toFloat()) }
+
     Column(
         verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier = Modifier.padding(8.dp)
@@ -123,11 +132,12 @@ private fun SettingsBottomSheet(
         if (tileSettings.isTransparencyEnabled) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Tile Blur:", modifier = Modifier.weight(1f))
-                Text("${tileSettings.blurRadius} dp", modifier = Modifier.padding(end = 8.dp))
+                Text("${blurSlider.toInt()} dp", modifier = Modifier.padding(end = 8.dp))
                 Slider(
-                    value = tileSettings.blurRadius.toFloat(),
-                    onValueChange = {
-                        onSettingsEvent(SettingsEvent.OnSettingsUpdated(tileSettings.copy(blurRadius = it.toInt())))
+                    value = blurSlider,
+                    onValueChange = { blurSlider = it },
+                    onValueChangeFinished = {
+                        onSettingsEvent(SettingsEvent.OnSettingsUpdated(tileSettings.copy(blurRadius = blurSlider.toInt())))
                     },
                     valueRange = 0f..30f,
                     modifier = Modifier.weight(1.5f),
@@ -135,11 +145,12 @@ private fun SettingsBottomSheet(
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Glass Opacity / Tint:", modifier = Modifier.weight(1f))
-                Text("${(tileSettings.tintAlpha * 100).toInt()}%", modifier = Modifier.padding(end = 8.dp))
+                Text("${(tintSlider * 100).toInt()}%", modifier = Modifier.padding(end = 8.dp))
                 Slider(
-                    value = tileSettings.tintAlpha,
-                    onValueChange = {
-                        onSettingsEvent(SettingsEvent.OnSettingsUpdated(tileSettings.copy(tintAlpha = it)))
+                    value = tintSlider,
+                    onValueChange = { tintSlider = it },
+                    onValueChangeFinished = {
+                        onSettingsEvent(SettingsEvent.OnSettingsUpdated(tileSettings.copy(tintAlpha = tintSlider)))
                     },
                     valueRange = 0.0f..0.50f,
                     modifier = Modifier.weight(1.5f),
@@ -153,11 +164,12 @@ private fun SettingsBottomSheet(
                     .align(Alignment.CenterVertically)
                     .weight(1f)
             )
-            Text(text = tileSettings.cornerRadius.toString())
+            Text(text = "${cornerSlider.toInt()}")
             Slider(
-                value = tileSettings.cornerRadius.toFloat(),
-                onValueChange = {
-                    onSettingsEvent(SettingsEvent.OnSettingsUpdated(tileSettings.copy(cornerRadius = it.toInt())))
+                value = cornerSlider,
+                onValueChange = { cornerSlider = it },
+                onValueChangeFinished = {
+                    onSettingsEvent(SettingsEvent.OnSettingsUpdated(tileSettings.copy(cornerRadius = cornerSlider.toInt())))
                 },
                 valueRange = 0f..50f,
                 modifier = Modifier.weight(1f),

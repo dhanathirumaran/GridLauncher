@@ -35,21 +35,22 @@ class UpdateAppListUseCase @Inject constructor(
             val currentGrid = appsManager.homeGridFlow.firstOrNull().orEmpty()
 
             // 1. Remove apps that were uninstalled from device and retain shortcuts & smart tiles
-            // Also deduplicate existing app tiles by package name, and ensure launcher's own package is removed
+            val installedAppMap = installedApps.associateBy { it.packageName }
             val seenPackages = mutableSetOf<String>()
-            val filteredGrid = currentGrid.filter {
-                when (it.itemType) {
+            val filteredGrid = currentGrid.mapNotNull { item ->
+                when (item.itemType) {
                     GridItemType.APP -> {
-                        val pkg = it.app.packageName
+                        val pkg = item.app.packageName
                         if (pkg == context.packageName) {
-                            false // Never keep launcher itself
+                            null // Never keep launcher itself
                         } else if (pkg in installedPackageNames && seenPackages.add(pkg)) {
-                            true // Keep only installed and deduplicated
+                            val freshApp = installedAppMap[pkg] ?: item.app
+                            item.copy(app = freshApp)
                         } else {
-                            false
+                            null
                         }
                     }
-                    GridItemType.SHORTCUT, GridItemType.SMART_TILE -> true
+                    GridItemType.SHORTCUT, GridItemType.SMART_TILE -> item
                 }
             }
             val compactedGrid = GridPacker.compact(filteredGrid)

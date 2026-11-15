@@ -94,7 +94,25 @@ object GridPacker {
         var bestScore = Float.MAX_VALUE
         var bestPacked: List<GridItem> = items
 
-        for (to in 0 until n) {
+        val targetIdx = items.indices.minByOrNull { i ->
+            val it = items[i]
+            val cx = it.x + it.width / 2f
+            val cy = it.y + it.height / 2f
+            val dx = cx - targetCenterX
+            val dy = cy - targetCenterY
+            dx * dx + dy * dy
+        } ?: from
+
+        val windowRadius = 4
+        val rangeStart = (targetIdx - windowRadius).coerceAtLeast(0)
+        val rangeEnd = (targetIdx + windowRadius).coerceAtMost(n - 1)
+
+        val candidateIndices = mutableSetOf(0, n - 1, targetIdx)
+        for (idx in rangeStart..rangeEnd) {
+            candidateIndices.add(idx)
+        }
+
+        for (to in candidateIndices) {
             val candidate = items.toMutableList()
             val item = candidate.removeAt(from)
             candidate.add(to, item)

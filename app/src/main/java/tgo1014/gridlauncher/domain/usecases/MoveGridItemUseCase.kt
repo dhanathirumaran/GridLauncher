@@ -1,6 +1,8 @@
 package tgo1014.gridlauncher.domain.usecases
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import tgo1014.gridlauncher.app.Constants
 import tgo1014.gridlauncher.domain.AppsManager
 import tgo1014.gridlauncher.domain.GridPacker
@@ -12,13 +14,15 @@ class MoveGridItemUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(itemId: Int, newX: Int, newY: Int) = runCatching {
         val currentGrid = appsManager.homeGridFlow.first()
-        val packed = GridPacker.moveAndPack(
-            items = currentGrid,
-            movingItemId = itemId,
-            targetCol = newX,
-            targetRow = newY,
-            columns = Constants.gridColumns
-        )
+        val packed = withContext(Dispatchers.Default) {
+            GridPacker.moveAndPack(
+                items = currentGrid,
+                movingItemId = itemId,
+                targetCol = newX,
+                targetRow = newY,
+                columns = Constants.gridColumns
+            )
+        }
         appsManager.setGrid(packed)
     }
 

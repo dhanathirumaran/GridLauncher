@@ -1,6 +1,6 @@
 package tgo1014.gridlauncher.ui.composables
 
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.compositionLocalOf
 import tgo1014.gridlauncher.data.smarttile.BatteryTileState
 import tgo1014.gridlauncher.data.smarttile.WeatherState
 
@@ -12,4 +12,4 @@ data class SmartTileData(
     val weatherState: WeatherState = WeatherState()
 )
 
-val LocalSmartTileData = staticCompositionLocalOf { SmartTileData() }
+val LocalSmartTileData = compositionLocalOf { SmartTileData() }

@@ -20,14 +20,15 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
@@ -106,15 +107,20 @@ class MainActivity : ComponentActivity() {
 
     private fun askToBeDefaultLauncher() {
         if (isDefaultLauncher()) return
-        val intent = Intent(Settings.ACTION_HOME_SETTINGS)
-        startActivity(intent)
+        val prefs = getSharedPreferences("LAUNCHER_PREFS", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("HAS_ASKED_DEFAULT_LAUNCHER", false)) return
+        prefs.edit().putBoolean("HAS_ASKED_DEFAULT_LAUNCHER", true).apply()
+        runCatching {
+            val intent = Intent(Settings.ACTION_HOME_SETTINGS)
+            startActivity(intent)
+        }
     }
 
     private fun checkAndRequestSmartTilePermissions() {
         val permissionsToRequest = mutableListOf<String>()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            if (checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED) {
                 permissionsToRequest.add(Manifest.permission.ACTIVITY_RECOGNITION)
             } else {
                 stepCounterManager.startListening()
@@ -123,13 +129,19 @@ class MainActivity : ComponentActivity() {
             stepCounterManager.startListening()
         }
 
-        val hasCoarse = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val hasFine = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasFine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         if (!hasCoarse && !hasFine) {
             permissionsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
             permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
         } else {
             weatherManager.fetchWeatherAsync()
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.BLUETOOTH_CONNECT)
+            }
         }
 
         if (permissionsToRequest.isNotEmpty()) {
@@ -156,39 +168,37 @@ class MainActivity : ComponentActivity() {
     private fun SetupStatusBarIconsColorEffect() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O_MR1) {
-            // TODO figure this for older versions where WallpaperManager is not available
             enableEdgeToEdge()
             return
         }
-        var useDarkIcons by remember { mutableStateOf(false) }
         val context = LocalContext.current
-        LaunchedEffect(useDarkIcons) {
-            // For some reason these two lines are needed
+        var isWallpaperDark by remember { mutableStateOf(false) }
+
+        DisposableEffect(context) {
+            isWallpaperDark = (getWallpaperColor(context)?.luminance() ?: 0f) <= 0.5f
+            val wm = WallpaperManager.getInstance(context)
+            val listener = WallpaperManager.OnColorsChangedListener { colors, _ ->
+                isWallpaperDark = (colors?.primaryColor?.luminance() ?: 0f) <= 0.5f
+            }
+            wm.addOnColorsChangedListener(listener, Handler(Looper.getMainLooper()))
+            onDispose {
+                wm.removeOnColorsChangedListener(listener)
+            }
+        }
+
+        LaunchedEffect(isWallpaperDark) {
             window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
             window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS)
-            val isDarkIcons = (getWallpaperColor(context)?.luminance() ?: 0f) <= 0.5f
             enableEdgeToEdge(
                 statusBarStyle = SystemBarStyle.auto(
                     android.graphics.Color.TRANSPARENT,
                     android.graphics.Color.TRANSPARENT,
-                ) { isDarkIcons },
+                ) { isWallpaperDark },
                 navigationBarStyle = SystemBarStyle.auto(
                     lightScrim,
                     darkScrim,
-                ) { isDarkIcons },
+                ) { isWallpaperDark },
             )
-        }
-        SideEffect {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-                useDarkIcons = (getWallpaperColor(context)?.luminance() ?: 0f) <= 0.5f
-                WallpaperManager.getInstance(context)
-                    .addOnColorsChangedListener(
-                        (WallpaperManager.OnColorsChangedListener { colors, _ ->
-                            useDarkIcons = (colors?.primaryColor?.luminance() ?: 0f) > 0.5f
-                        }),
-                        Handler(Looper.getMainLooper())
-                    )
-            }
         }
     }
 

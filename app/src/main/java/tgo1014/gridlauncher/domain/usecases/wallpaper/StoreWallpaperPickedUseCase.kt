@@ -59,9 +59,6 @@ class StoreWallpaperPickedUseCase @Inject constructor(
             drawable.draw(canvas)
             bitmap
         }
-        if (context.isSystemDarkTheme) {
-            bitmap = bitmap.reduceBitmapBrightness()
-        }
         return bitmap
     }
 

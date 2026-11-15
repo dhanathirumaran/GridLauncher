@@ -39,11 +39,22 @@ class ThemeRepositoryImpl @Inject constructor(
             .launchIn(scope)
     }
 
+    private var lastWallpaperPath: String? = null
+    private var cachedSeedColor: Color? = null
+
     private fun getCurrentTheme(settings: TileSettings): Theme {
-        if (!settings.isTransparencyEnabled) {
+        if (!settings.isTransparencyEnabled || settings.wallpaperFile == null) {
             return SystemDefault
         }
-        val seedColor = calculateSeedColor(settings.wallpaperFile!!)
+        val path = settings.wallpaperPath
+        val seedColor = if (path == lastWallpaperPath && cachedSeedColor != null) {
+            cachedSeedColor
+        } else {
+            val color = calculateSeedColor(settings.wallpaperFile)
+            lastWallpaperPath = path
+            cachedSeedColor = color
+            color
+        }
         return if (seedColor == null) {
             SystemDefault
         } else {
