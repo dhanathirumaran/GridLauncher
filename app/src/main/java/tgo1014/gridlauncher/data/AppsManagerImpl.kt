@@ -9,6 +9,7 @@ import android.content.pm.PackageManager.MATCH_ALL
 import android.content.pm.ResolveInfo
 import android.net.Uri
 import android.os.Build
+import android.widget.Toast
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -32,11 +33,24 @@ class AppsManagerImpl @Inject constructor(
     override val homeGridFlow = appsManagerDataSource.homeGridFlow
 
     init {
-        scope.launch { updateAppsList() }
+        scope.launch {
+            runCatching { updateAppsList() }.onFailure { it.printStackTrace() }
+        }
     }
 
     override fun openApp(app: App) {
-        context.startActivity(packageManager.getLaunchIntentForPackage(app.packageName))
+        runCatching {
+            val intent = packageManager.getLaunchIntentForPackage(app.packageName)
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+            } else {
+                Toast.makeText(context, "App not found or disabled: ${app.name}", Toast.LENGTH_SHORT).show()
+            }
+        }.onFailure { e ->
+            e.printStackTrace()
+            Toast.makeText(context, "Unable to launch ${app.name}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun openShortcut(gridItem: GridItem) {
@@ -77,39 +91,50 @@ class AppsManagerImpl @Inject constructor(
 
     private suspend fun fetchAllApps(): List<App> {
         val intent = Intent(Intent.ACTION_MAIN, null).addCategory(Intent.CATEGORY_LAUNCHER)
-        val resolveInfoList = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            packageManager.queryIntentActivities(
-                intent,
-                PackageManager.ResolveInfoFlags.of(MATCH_ALL.toLong())
-            )
-        } else {
-            packageManager.queryIntentActivities(intent, GET_META_DATA)
-        }
-        return resolveInfoList
-            .mapNotNull {
-                App(
-                    name = it.appName,
-                    packageName = it.packageName,
-                    icon = appIconManager.getIcon(it.packageName),
-                    isSystemApp = it.isSystemApp
+        val resolveInfoList = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.queryIntentActivities(
+                    intent,
+                    PackageManager.ResolveInfoFlags.of(MATCH_ALL.toLong())
                 )
+            } else {
+                packageManager.queryIntentActivities(intent, GET_META_DATA)
+            }
+        }.getOrDefault(emptyList())
+
+        return resolveInfoList
+            .mapNotNull { resolveInfo ->
+                runCatching {
+                    val appInfo = resolveInfo.applicationInfo ?: return@mapNotNull null
+                    val appName = resolveInfo.appName.takeIf { it.isNotBlank() } ?: resolveInfo.packageName
+                    App(
+                        name = appName,
+                        packageName = resolveInfo.packageName,
+                        icon = appIconManager.getIcon(resolveInfo.packageName),
+                        isSystemApp = resolveInfo.isSystemApp
+                    )
+                }.getOrNull()
             }
     }
 
     private val ResolveInfo.packageName get() = activityInfo.packageName
-    private val ResolveInfo.applicationInfo
-        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            packageManager.getApplicationInfo(
-                packageName,
-                PackageManager.ApplicationInfoFlags.of(0)
-            )
-        } else {
-            packageManager.getApplicationInfo(packageName, GET_META_DATA)
-        }
+    private val ResolveInfo.applicationInfo: ApplicationInfo?
+        get() = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getApplicationInfo(
+                    packageName,
+                    PackageManager.ApplicationInfoFlags.of(0)
+                )
+            } else {
+                packageManager.getApplicationInfo(packageName, GET_META_DATA)
+            }
+        }.getOrNull()
+
     private val ResolveInfo.appName: String
-        get() = packageManager.getApplicationLabel(applicationInfo).toString()
+        get() = applicationInfo?.let {
+            runCatching { packageManager.getApplicationLabel(it).toString() }.getOrNull()
+        }.orEmpty()
 
-    private val ResolveInfo.isSystemApp
-        get() = (applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-
+    private val ResolveInfo.isSystemApp: Boolean
+        get() = (applicationInfo?.flags?.and(ApplicationInfo.FLAG_SYSTEM) ?: 0) != 0
 }
