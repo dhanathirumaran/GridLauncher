@@ -31,7 +31,6 @@ import tgo1014.gridlauncher.data.smarttile.WeatherManager
 import tgo1014.gridlauncher.domain.usecases.GetAppListUseCase
 import tgo1014.gridlauncher.domain.usecases.ItemGridSizeChangeUseCase
 import tgo1014.gridlauncher.domain.usecases.MoveGridItemUseCase
-import tgo1014.gridlauncher.domain.usecases.OpenNotificationShadeUseCase
 import tgo1014.gridlauncher.domain.usecases.RemoveFromGridUseCase
 import tgo1014.gridlauncher.domain.usecases.wallpaper.OnSystemThemeChangedUseCase
 import tgo1014.gridlauncher.domain.usecases.wallpaper.RemoveWallpaperUseCase
@@ -50,7 +49,6 @@ import javax.inject.Inject
 class HomeScreenViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val getAppListUseCase: GetAppListUseCase,
-    private val openNotificationShadeUseCase: OpenNotificationShadeUseCase,
     private val addToGridUseCase: AddToGridUseCase,
     private val moveGridItemUseCase: MoveGridItemUseCase,
     private val removeFromGridUseCase: RemoveFromGridUseCase,
@@ -96,13 +94,13 @@ class HomeScreenViewModel @Inject constructor(
     }
 
     fun onGoToHome() {
-        _stateFlow.update { it.copy(goToHome = true) }
+        _stateFlow.update { it.copy(goToHome = true, itemBeingEdited = null) }
     }
 
     fun onOpenApp(app: App) {
         viewModelScope.launch {
             delay(200)
-            _stateFlow.update { it.copy(goToHome = true, closeSearchFab = true) }
+            _stateFlow.update { it.copy(goToHome = true) }
             resetState()
         }
         viewModelScope.launch { appsManager.openApp(app) }
@@ -115,7 +113,7 @@ class HomeScreenViewModel @Inject constructor(
                     GridItemType.APP -> onOpenApp(gridItem.app)
                     GridItemType.SHORTCUT -> {
                         delay(200)
-                        _stateFlow.update { it.copy(goToHome = true, closeSearchFab = true) }
+                        _stateFlow.update { it.copy(goToHome = true) }
                         resetState()
                         appsManager.openShortcut(gridItem)
                     }
@@ -175,10 +173,6 @@ class HomeScreenViewModel @Inject constructor(
         _stateFlow.update { it.copy(itemBeingEdited = gridItem) }
     }
 
-    fun openNotificationShade() {
-        openNotificationShadeUseCase()
-    }
-
     fun onSwitchedToHome() {
         _stateFlow.update { it.copy(goToHome = false) }
     }
@@ -204,10 +198,6 @@ class HomeScreenViewModel @Inject constructor(
 
     fun onFilterCleared() {
         _stateFlow.update { it.copy(filterString = "", appList = fullAppList) }
-    }
-
-    fun onFabClosed() {
-        _stateFlow.update { it.copy(closeSearchFab = false) }
     }
 
     fun onSettingsEvent(event: SettingsEvent) = viewModelScope.launch {

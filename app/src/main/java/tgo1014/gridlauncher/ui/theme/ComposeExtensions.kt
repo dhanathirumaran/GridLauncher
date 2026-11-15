@@ -88,18 +88,6 @@ fun LazyListState.isScrollingUp(): Boolean {
 @Composable
 fun LazyListState.isScrollingDown() = this.isScrollInProgress && !isScrollingUp()
 
-fun Modifier.onOpenNotificationShade(isOnTop: Boolean, onOpen: () -> Unit): Modifier {
-    return this.pointerInput(isOnTop) {
-        detectConsumedVerticalDragGestures(
-            onVerticalDrag = { _, dragAmount ->
-                if (isOnTop && dragAmount > 0) { // Swiping down
-                    onOpen()
-                }
-            },
-        )
-    }
-}
-
 private val overshootEasing = Easing { fraction ->
     val tension = 2.0f
     var t = fraction

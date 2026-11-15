@@ -29,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -85,6 +86,8 @@ fun TileLayout(
     onAppUninstalled: (item: GridItem) -> Unit = {},
     onDismissEditMode: () -> Unit = {},
     footer: @Composable (Modifier) -> Unit = {},
+    goToHome: Boolean = false,
+    onHomeScrolled: () -> Unit = {},
 ) = BoxWithConstraints(
     modifier = modifier.modifyIf(itemBeingEdited != null) {
         pointerInput(Unit) {
@@ -100,6 +103,15 @@ fun TileLayout(
     val gridItemSizePx = with(density) { gridItemSize.toPx() }
 
     val tableState: LazyTableState = rememberLazyTableState()
+
+    LaunchedEffect(goToHome) {
+        if (goToHome) {
+            runCatching {
+                tableState.animateToCell(0, 0)
+            }
+            onHomeScrolled()
+        }
+    }
 
     val systemBars = WindowInsets.systemBars.asPaddingValues()
     val extraBottom = if (itemBeingEdited != null) 96.dp else 0.dp

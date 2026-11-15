@@ -3,6 +3,7 @@ package tgo1014.gridlauncher.ui.home
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
@@ -15,14 +16,11 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
-import tgo1014.gridlauncher.ui.composables.LaunchedIfTrueEffect
+import tgo1014.gridlauncher.ui.composables.LocalSmartTileData
 import tgo1014.gridlauncher.ui.models.GridItem
 import tgo1014.gridlauncher.ui.models.SettingsEvent
 import tgo1014.gridlauncher.ui.models.TileEvent
 import tgo1014.gridlauncher.ui.theme.AsyncImage
-
-import androidx.compose.runtime.CompositionLocalProvider
-import tgo1014.gridlauncher.ui.composables.LocalSmartTileData
 
 @Composable
 fun HomeScreen(
@@ -33,8 +31,7 @@ fun HomeScreen(
     CompositionLocalProvider(LocalSmartTileData provides smartTileData) {
         HomeScreen(
             state = state,
-            onHome = viewModel::onSwitchedToHome,
-            onOpenNotificationShade = viewModel::openNotificationShade,
+            onHomeScrolled = viewModel::onSwitchedToHome,
             onItemClicked = viewModel::onGridItemClicked,
             onItemLongClicked = viewModel::onGridItemLongClicked,
             onSettingsEvent = viewModel::onSettingsEvent,
@@ -46,16 +43,12 @@ fun HomeScreen(
 @Composable
 private fun HomeScreen(
     state: HomeState,
-    onHome: () -> Unit = {},
-    onOpenNotificationShade: () -> Unit = {},
+    onHomeScrolled: () -> Unit = {},
     onItemClicked: (item: GridItem) -> Unit = {},
     onItemLongClicked: (item: GridItem) -> Unit = {},
     onSettingsEvent: (SettingsEvent) -> Unit = {},
     onTileEvent: (TileEvent) -> Unit = {},
 ) = Box(modifier = Modifier.fillMaxSize()) {
-    LaunchedIfTrueEffect(state.goToHome) {
-        onHome()
-    }
     val hazeState = remember { HazeState() }
     if (state.tileSettings.isTransparencyEnabled) {
         key(state.tileSettings.wallpaperFile) {
@@ -74,7 +67,7 @@ private fun HomeScreen(
     GridScreenScreen(
         state = state,
         hazeState = hazeState,
-        onOpenNotificationShade = onOpenNotificationShade,
+        onHomeScrolled = onHomeScrolled,
         onItemClicked = onItemClicked,
         onItemLongClicked = onItemLongClicked,
         onSettingsEvent = onSettingsEvent,

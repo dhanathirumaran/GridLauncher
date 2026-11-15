@@ -2,14 +2,27 @@
 
 ## About
 
-This is a very early version of a Grid Launcher based in the old Windows Phone design. It lacks features but it's in a usable state. 
-Feel free to open Issues for bug and/or requests. This is a fun side project, so don't expect super fast response times.
+GridLauncher is a modern, fluid Android launcher inspired by the Windows Phone Metro design, built with Jetpack Compose. It features a customizable 8-column grid, live smart tiles (Flashlight, Battery, Step Counter, Currency Exchange, Weather), pinned app shortcuts, smooth animations, and wallpaper blur effects.
+
+## Features
+
+- **Customizable Grid:** 8-column grid with drag-and-drop repositioning and multi-size tile resizing.
+- **Smart Live Tiles:**
+  - Flashlight toggle
+  - Battery percentage & status
+  - Step counter (daily step tracking with reboot continuity)
+  - Currency exchange rate
+  - Weather forecast
+- **Pinned App Shortcuts:** Pin deep shortcuts from third-party apps directly to the grid.
+- **Theming & Personalization:** Custom wallpaper support with transparency, blur radius, tint adjustments, and dynamic Material color extraction.
+- **Edge-to-Edge:** Full modern edge-to-edge support with automatic status and navigation bar icon contrast adaptation.
 
 ## Download
 
-You can find the latest version here: https://github.com/Tgo1014/GridLauncher/releases
+You can find the latest releases and APKs here:
+https://github.com/dhanathirumaran/GridLauncher/releases
 
-Click on the "Assets" and download the `.apk`.
+Click on **Assets** under the release to download the `.apk`.
 
 ## Screenshots
 

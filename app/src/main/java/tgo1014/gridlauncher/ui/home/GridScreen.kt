@@ -45,9 +45,9 @@ import tgo1014.gridlauncher.ui.theme.conditional
 fun GridScreenScreen(
     state: HomeState,
     hazeState: HazeState = remember { HazeState() },
+    onHomeScrolled: () -> Unit = {},
     onItemClicked: (item: GridItem) -> Unit = {},
     onItemLongClicked: (item: GridItem) -> Unit = {},
-    onOpenNotificationShade: () -> Unit = {},
     onTileEvent: (TileEvent) -> Unit = {},
     onSettingsEvent: (SettingsEvent) -> Unit = {},
 ) {
@@ -60,6 +60,8 @@ fun GridScreenScreen(
         tileSettings = state.tileSettings,
         hazeState = hazeState,
         itemBeingEdited = state.itemBeingEdited,
+        goToHome = state.goToHome,
+        onHomeScrolled = onHomeScrolled,
         onItemClicked = onItemClicked,
         onItemLongClicked = onItemLongClicked,
         onTilePositionChanged = { id, targetX, targetY ->
