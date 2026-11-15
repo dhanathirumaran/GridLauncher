@@ -119,11 +119,11 @@ fun TileLayout(
         systemBars + PaddingValues(padding) + contentPadding + PaddingValues(bottom = extraBottom)
     }
 
-    val dynamicHazeStyle = remember(tileSettings.blurRadius, tileSettings.tintAlpha, tileSettings.hasBlurredWallpaper) {
+    val dynamicHazeStyle = remember(tileSettings.blurRadius, tileSettings.tintAlpha) {
         HazeStyle(
             backgroundColor = Color.Transparent,
             tint = HazeTint.Color(Color.White.copy(alpha = tileSettings.tintAlpha)),
-            blurRadius = if (tileSettings.hasBlurredWallpaper) 0.dp else tileSettings.blurRadius.dp,
+            blurRadius = tileSettings.blurRadius.dp,
             noiseFactor = 0f
         )
     }
@@ -164,9 +164,10 @@ fun TileLayout(
         }
     }
 
-    // Pre-Blurred Wallpaper Underlay:
-    // With pre-blurred underlay, Haze runs with blurRadius = 0.dp (0 GPU shader blur passes during scroll).
+    // Permanent Haze Frosted Glass:
     // hazeChild is permanently active 100% of the time, completely eliminating motion flicker/pop.
+    // Real-time blur is preserved, while scroll performance is maintained through tile-flip suppression
+    // and live data snapshotting/throttling.
     val hazeChildModifier = if (tileSettings.isTransparencyEnabled) {
         Modifier.hazeChild(
             state = hazeState,
