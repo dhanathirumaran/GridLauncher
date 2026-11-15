@@ -147,14 +147,19 @@ fun TileLayout(
         LazyTableScrollDirection.VERTICAL
     }
 
-    val isScrolling = tableState.isScrollInProgress
-    var isSettled by remember { mutableStateOf(!isScrolling) }
+    var isScrolling by remember { mutableStateOf(false) }
+    var isSettled by remember { mutableStateOf(true) }
 
-    LaunchedEffect(isScrolling, itemBeingEdited) {
-        if (isScrolling || itemBeingEdited != null) {
+    val tableTranslate = tableState.minaBoxState.translate
+    LaunchedEffect(tableTranslate, itemBeingEdited) {
+        if (itemBeingEdited != null) {
+            isScrolling = false
             isSettled = false
-        } else {
+        } else if (tableTranslate != null) {
+            isScrolling = true
+            isSettled = false
             kotlinx.coroutines.delay(500L)
+            isScrolling = false
             isSettled = true
         }
     }
@@ -198,9 +203,9 @@ fun TileLayout(
             activeNotifications = currentNotifications
         } else {
             // While scrolling is active, snapshot is frozen. Sample at ~1 Hz if scroll is prolonged (>1s).
-            while (kotlinx.coroutines.isActive) {
+            while (true) {
                 kotlinx.coroutines.delay(1000L)
-                if (tableState.isScrollInProgress) {
+                if (isScrolling) {
                     activeSmartData = currentSmartData
                     activeNotifications = currentNotifications
                 }

@@ -113,7 +113,7 @@ fun Modifier.flipRandomly(isSettled: Boolean = true) = composed {
             animatedFloat.snapTo(0f)
             return@LaunchedEffect
         }
-        while (kotlinx.coroutines.isActive) {
+        while (true) {
             val delayMs = Random.nextLong(15_000L, 30_000L)
             kotlinx.coroutines.delay(delayMs)
             animatedFloat.animateTo(
