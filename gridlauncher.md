@@ -47,6 +47,8 @@ The issues identified across the codebase fall into two distinct categories:
 | **B32** | **Wallpaper input stream unclosed leak** | **Early** (Wallpaper) | Medium | Fixed |
 | **B33** | **Theme repository leaves FileInputStream open** | **Early** (Theme) | Medium | Fixed |
 | **B34** | **Redundant startup app scan & concurrent refresh deduplication** | **Early** (AppsManager) | High | Fixed |
+| **B35** | **Tile flip during scroll suppression & settled state gating** | **Early** (Grid Tile) | Medium | Fixed |
+
 
 
 ---
@@ -440,6 +442,8 @@ The issues identified across the codebase fall into two distinct categories:
 - [x] **B32 (Wallpaper Stream Safety):** Wrap all wallpaper `ContentResolver` input streams in `.use { ... }` blocks to prevent descriptor leaks (`StoreWallpaperPickedUseCase.kt`).
 - [x] **B33 (Theme Stream & Memory):** Wrap theme wallpaper `FileInputStream` in `.use { ... }` and downsample to $\le 256\times 256$ for theme extraction (`ThemeRepositoryImpl.kt`).
 - [x] **B34 (Startup Scan Deduplication):** Centralize startup app scanning in `UpdateAppListUseCase` and deduplicate in-flight scans with mutex and deferred async jobs (`AppsManagerImpl.kt`, `MainActivity.kt`).
+- [x] **B35 (Scroll Tile Flip Suppression):** Gate random tile flip animations behind `LocalIsGridSettled` and debounced scroll detection in `TileLayout`, `GridTile`, `SmartTile`, and `ComposeExtensions` to ensure tiles only flip when the grid is fully settled.
+
 
 ---
 

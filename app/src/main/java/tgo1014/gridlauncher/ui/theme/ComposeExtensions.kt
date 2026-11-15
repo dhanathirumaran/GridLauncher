@@ -100,25 +100,39 @@ private val overshootEasing = Easing { fraction ->
     }
 }
 
-fun Modifier.flipRandomly() = composed {
+val LocalIsGridSettled = androidx.compose.runtime.compositionLocalOf { true }
+
+fun Modifier.flipRandomly(isSettled: Boolean = true) = composed {
+    val gridSettled = LocalIsGridSettled.current && isSettled
+    if (!gridSettled) return@composed this
+
     val animatedFloat = remember { Animatable(0f) }
 
-    LaunchedEffect(animatedFloat) {
-        animatedFloat.animateTo(
-            targetValue = 360f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(
-                    1000,
-                    delayMillis = Random.nextInt(15_000, 30_000),
+    LaunchedEffect(gridSettled) {
+        if (!gridSettled) {
+            animatedFloat.snapTo(0f)
+            return@LaunchedEffect
+        }
+        while (kotlinx.coroutines.isActive) {
+            val delayMs = Random.nextLong(15_000L, 30_000L)
+            kotlinx.coroutines.delay(delayMs)
+            animatedFloat.animateTo(
+                targetValue = 360f,
+                animationSpec = tween(
+                    durationMillis = 1000,
                     easing = overshootEasing
-                ),
-                repeatMode = RepeatMode.Restart
+                )
             )
-        )
+            animatedFloat.snapTo(0f)
+        }
     }
+
     this.graphicsLayer {
-        rotationX = animatedFloat.value
-        cameraDistance = 300f
+        val value = animatedFloat.value
+        if (value != 0f) {
+            rotationX = value
+            cameraDistance = 300f
+        }
     }
 }
 

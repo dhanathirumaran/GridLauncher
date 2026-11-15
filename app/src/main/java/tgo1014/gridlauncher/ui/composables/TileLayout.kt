@@ -158,12 +158,27 @@ fun TileLayout(
         LazyTableScrollDirection.VERTICAL
     }
 
-    LazyTable(
-        state = tableState,
-        scrollDirection = currentScrollDirection,
-        contentPadding = base,
-        dimensions = tableDimensions,
+    val isScrolling = tableState.isScrollInProgress
+    var isSettled by remember { mutableStateOf(!isScrolling) }
+
+    LaunchedEffect(isScrolling, itemBeingEdited) {
+        if (isScrolling || itemBeingEdited != null) {
+            isSettled = false
+        } else {
+            kotlinx.coroutines.delay(1000L)
+            isSettled = true
+        }
+    }
+
+    androidx.compose.runtime.CompositionLocalProvider(
+        tgo1014.gridlauncher.ui.theme.LocalIsGridSettled provides isSettled
     ) {
+        LazyTable(
+            state = tableState,
+            scrollDirection = currentScrollDirection,
+            contentPadding = base,
+            dimensions = tableDimensions,
+        ) {
         items(
             items = grid,
             key = { it.id },
@@ -453,6 +468,7 @@ fun TileLayout(
             },
             itemContent = { footer(hazeChildModifier) }
         )
+    }
     }
 }
 

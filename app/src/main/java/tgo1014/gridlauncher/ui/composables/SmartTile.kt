@@ -156,10 +156,11 @@ fun SmartTile(
         Color.Transparent
     }
 
+    val isSettled = tgo1014.gridlauncher.ui.theme.LocalIsGridSettled.current
     Box(
         modifier = Modifier
-            .modifyIf(!isEditMode && tileSettings.isTileFlipEnabled) {
-                flipRandomly()
+            .modifyIf(!isEditMode && tileSettings.isTileFlipEnabled && isSettled) {
+                flipRandomly(isSettled)
             }
             .tileEditMode(isEditMode)
             .clip(shape)
