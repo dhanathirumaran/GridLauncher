@@ -17,8 +17,8 @@ val Context.wallpaperDarkFile: File
 
 val AppHazeStyle: HazeStyle
     @Composable get() = HazeStyle(
-        backgroundColor = MaterialTheme.colorScheme.primary,
-        tint = HazeTint.Color(MaterialTheme.colorScheme.primaryContainer.copy(0.3f)),
-        blurRadius = 8.dp,
+        backgroundColor = androidx.compose.ui.graphics.Color.Transparent,
+        tint = HazeTint.Color(androidx.compose.ui.graphics.Color.White.copy(0.10f)),
+        blurRadius = 12.dp,
         noiseFactor = 0f
     )

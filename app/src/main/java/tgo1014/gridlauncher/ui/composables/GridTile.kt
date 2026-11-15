@@ -114,7 +114,7 @@ fun GridTile(
             contentColor
         ) {
             when {
-                tileSettings.isTransparencyEnabled -> contentColor
+                tileSettings.isTransparencyEnabled -> Color.White
                 bgModel == null -> onContainer
                 isLightBg -> Color.Black
                 else -> Color.White

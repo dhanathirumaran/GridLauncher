@@ -1,10 +1,14 @@
 package tgo1014.gridlauncher.data.smarttile
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
+import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,9 +34,22 @@ class StepCounterManager @Inject constructor(
         val lastRaw = prefs.getInt("LAST_RAW_STEPS", 0)
         checkDailyReset(lastRaw)
         _todaySteps.value = calculateTodaySteps(lastRaw)
+        startListening()
+    }
+
+    fun startListening() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val hasPerm = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACTIVITY_RECOGNITION
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!hasPerm) return
+        }
         stepSensor?.let {
+            sensorManager?.unregisterListener(this)
             sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
         }
+        refresh()
     }
 
     override fun onSensorChanged(event: SensorEvent?) {

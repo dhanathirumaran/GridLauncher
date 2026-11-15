@@ -39,6 +39,10 @@ class WeatherManager @Inject constructor(
     val weatherState = _weatherState.asStateFlow()
 
     init {
+        fetchWeatherAsync()
+    }
+
+    fun fetchWeatherAsync() {
         scope.launch { fetchWeather() }
     }
 

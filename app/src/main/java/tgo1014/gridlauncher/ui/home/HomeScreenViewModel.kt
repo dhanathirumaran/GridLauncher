@@ -144,7 +144,7 @@ class HomeScreenViewModel @Inject constructor(
                 }
             }
             SmartTileType.STEP_COUNTER -> {
-                stepCounterManager.refresh()
+                stepCounterManager.startListening()
                 val healthIntent = context.packageManager.getLaunchIntentForPackage("com.sec.android.app.shealth")
                     ?: context.packageManager.getLaunchIntentForPackage("com.google.android.apps.fitness")
                 if (healthIntent != null) {

@@ -10,6 +10,8 @@ data class TileSettings(
     val cornerRadius: Int = defaultRadius,
     val isAppLabelsHidden: Boolean = false,
     val wallpaperPath: String? = null,
+    val blurRadius: Int = 12,
+    val tintAlpha: Float = 0.10f,
 ) {
 
     val wallpaperFile: File?

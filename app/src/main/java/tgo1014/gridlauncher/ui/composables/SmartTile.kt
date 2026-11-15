@@ -55,7 +55,7 @@ fun SmartTile(
 ) {
     val shape = RoundedCornerShape(tileSettings.cornerRadius)
     val contentColor = if (tileSettings.isTransparencyEnabled) {
-        contentColorFor(MaterialTheme.colorScheme.primaryContainer)
+        Color.White
     } else {
         MaterialTheme.colorScheme.onPrimaryContainer
     }

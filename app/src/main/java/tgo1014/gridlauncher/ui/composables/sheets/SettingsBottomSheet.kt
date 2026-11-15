@@ -120,6 +120,33 @@ private fun SettingsBottomSheet(
             )
         }
 
+        if (tileSettings.isTransparencyEnabled) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Tile Blur:", modifier = Modifier.weight(1f))
+                Text("${tileSettings.blurRadius} dp", modifier = Modifier.padding(end = 8.dp))
+                Slider(
+                    value = tileSettings.blurRadius.toFloat(),
+                    onValueChange = {
+                        onSettingsEvent(SettingsEvent.OnSettingsUpdated(tileSettings.copy(blurRadius = it.toInt())))
+                    },
+                    valueRange = 0f..30f,
+                    modifier = Modifier.weight(1.5f),
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Glass Opacity / Tint:", modifier = Modifier.weight(1f))
+                Text("${(tileSettings.tintAlpha * 100).toInt()}%", modifier = Modifier.padding(end = 8.dp))
+                Slider(
+                    value = tileSettings.tintAlpha,
+                    onValueChange = {
+                        onSettingsEvent(SettingsEvent.OnSettingsUpdated(tileSettings.copy(tintAlpha = it)))
+                    },
+                    valueRange = 0.0f..0.50f,
+                    modifier = Modifier.weight(1.5f),
+                )
+            }
+        }
+
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 "Corners:", modifier = Modifier

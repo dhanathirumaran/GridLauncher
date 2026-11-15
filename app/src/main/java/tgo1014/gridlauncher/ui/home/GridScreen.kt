@@ -40,7 +40,6 @@ import tgo1014.gridlauncher.ui.models.SettingsEvent
 import tgo1014.gridlauncher.ui.models.TileEvent
 import tgo1014.gridlauncher.ui.theme.GridLauncherTheme
 import tgo1014.gridlauncher.ui.theme.conditional
-import tgo1014.gridlauncher.ui.theme.onOpenNotificationShade
 
 @Composable
 fun GridScreenScreen(
@@ -52,8 +51,6 @@ fun GridScreenScreen(
     onTileEvent: (TileEvent) -> Unit = {},
     onSettingsEvent: (SettingsEvent) -> Unit = {},
 ) {
-    var isOnTop by remember { mutableStateOf(true) }
-
     BackHandler(enabled = state.itemBeingEdited != null) {
         onTileEvent(TileEvent.OnDismissEditMode)
     }
@@ -95,11 +92,8 @@ fun GridScreenScreen(
                 )
             }
         },
-        isOnTop = { isOnTop = it },
         contentPadding = PaddingValues(0.dp),
-        modifier = Modifier
-            .fillMaxSize()
-            .onOpenNotificationShade(isOnTop, onOpenNotificationShade)
+        modifier = Modifier.fillMaxSize()
     )
     SettingsBottomSheet(
         tileSettings = state.tileSettings,

@@ -29,12 +29,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,7 +59,8 @@ import kotlin.math.roundToInt
 import tgo1014.gridlauncher.app.Constants.gridColumns
 import tgo1014.gridlauncher.domain.models.App
 import tgo1014.gridlauncher.domain.models.TileSettings
-import tgo1014.gridlauncher.domain.usecases.wallpaper.AppHazeStyle
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
 import tgo1014.gridlauncher.ui.models.GridItem
 import tgo1014.gridlauncher.ui.theme.modifyIf
 import tgo1014.gridlauncher.ui.theme.plus
@@ -87,8 +85,8 @@ fun TileLayout(
     onDismissEditMode: () -> Unit = {},
     footer: @Composable (Modifier) -> Unit = {},
 ) = BoxWithConstraints(
-    modifier = modifier.pointerInput(itemBeingEdited) {
-        if (itemBeingEdited != null) {
+    modifier = modifier.modifyIf(itemBeingEdited != null) {
+        pointerInput(Unit) {
             detectTapGestures {
                 onDismissEditMode()
             }
@@ -101,33 +99,47 @@ fun TileLayout(
     val gridItemSizePx = with(density) { gridItemSize.toPx() }
 
     val tableState: LazyTableState = rememberLazyTableState()
-    val isScrolledToTop by remember {
-        derivedStateOf {
-            (tableState.minaBoxState.translate?.y ?: 0f) <= 0.5f
-        }
-    }
-    val currentIsOnTop by rememberUpdatedState(isOnTop)
-    LaunchedEffect(isScrolledToTop) {
-        currentIsOnTop(isScrolledToTop)
-    }
 
     val systemBars = WindowInsets.systemBars.asPaddingValues()
-    var base by remember { mutableStateOf(PaddingValues()) }
-    LaunchedEffect(itemBeingEdited) {
-        val extraBottom = if (itemBeingEdited != null) 96.dp else 0.dp
-        base = systemBars + PaddingValues(padding) + contentPadding + PaddingValues(bottom = extraBottom)
+    val extraBottom = if (itemBeingEdited != null) 96.dp else 0.dp
+    val base = remember(systemBars, contentPadding, extraBottom) {
+        systemBars + PaddingValues(padding) + contentPadding + PaddingValues(bottom = extraBottom)
+    }
+
+    val dynamicHazeStyle = remember(tileSettings.blurRadius, tileSettings.tintAlpha) {
+        HazeStyle(
+            backgroundColor = Color.Transparent,
+            tint = HazeTint.Color(Color.White.copy(alpha = tileSettings.tintAlpha)),
+            blurRadius = tileSettings.blurRadius.dp,
+            noiseFactor = 0f
+        )
+    }
+
+    val tileShape = remember(tileSettings.cornerRadius) {
+        RoundedCornerShape(tileSettings.cornerRadius)
     }
 
     // Only apply blur pipeline when transparency/wallpaper is active; otherwise use lightweight clipping
     val hazeChildModifier = if (tileSettings.isTransparencyEnabled) {
-        Modifier
-            .clip(RoundedCornerShape(tileSettings.cornerRadius))
-            .hazeChild(
-                state = hazeState,
-                style = AppHazeStyle,
-            )
+        Modifier.hazeChild(
+            state = hazeState,
+            style = dynamicHazeStyle,
+            shape = tileShape,
+        )
     } else {
-        Modifier.clip(RoundedCornerShape(tileSettings.cornerRadius))
+        Modifier
+    }
+
+    val tableDimensions = remember(gridItemSize) {
+        lazyTableDimensions({ gridItemSize }, { gridItemSize })
+    }
+
+    val footerRow = remember(grid) {
+        val maxY = grid.maxOfOrNull { it.y } ?: 0
+        val rowOffset = grid.filter { it.y == maxY }
+            .fastMaxOfOrNull { it.height }
+            ?: 0
+        maxY + rowOffset
     }
 
     // Disable vertical scrolling on the table when in Edit Mode so drag/resize gestures have zero friction
@@ -141,7 +153,7 @@ fun TileLayout(
         state = tableState,
         scrollDirection = currentScrollDirection,
         contentPadding = base,
-        dimensions = lazyTableDimensions({ gridItemSize }, { gridItemSize }),
+        dimensions = tableDimensions,
     ) {
         items(
             items = grid,
@@ -405,16 +417,13 @@ fun TileLayout(
             }
         }
         // Footer
-        val maxY = grid.maxOfOrNull { it.y } ?: 0
-        val rowOffset = grid.filter { it.y == maxY }
-            .fastMaxOfOrNull { it.height }
-            ?: 0
         items(
             count = 1,
+            key = { -9999 },
             layoutInfo = {
                 LazyTableItem(
                     column = 0,
-                    row = maxY + rowOffset,
+                    row = footerRow,
                     columnsCount = columns,
                     rowsCount = 1
                 )

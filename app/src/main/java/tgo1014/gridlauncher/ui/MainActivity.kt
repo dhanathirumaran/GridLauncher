@@ -37,6 +37,11 @@ import tgo1014.gridlauncher.domain.usecases.UpdateAppListUseCase
 import tgo1014.gridlauncher.ui.home.HomeScreen
 import tgo1014.gridlauncher.ui.home.HomeScreenViewModel
 import tgo1014.gridlauncher.ui.theme.GridLauncherTheme
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.result.contract.ActivityResultContracts
+import tgo1014.gridlauncher.data.smarttile.StepCounterManager
+import tgo1014.gridlauncher.data.smarttile.WeatherManager
 import javax.inject.Inject
 
 
@@ -49,7 +54,26 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var updateAppListUseCase: UpdateAppListUseCase
 
+    @Inject
+    lateinit var stepCounterManager: StepCounterManager
+
+    @Inject
+    lateinit var weatherManager: WeatherManager
+
     private val homeScreenViewModel: HomeScreenViewModel by viewModels()
+
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions[Manifest.permission.ACTIVITY_RECOGNITION] == true) {
+            stepCounterManager.startListening()
+        }
+        if (permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
+            permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        ) {
+            weatherManager.fetchWeatherAsync()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,6 +85,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         askToBeDefaultLauncher()
+        checkAndRequestSmartTilePermissions()
     }
 
     override fun onResume() {
@@ -83,6 +108,32 @@ class MainActivity : ComponentActivity() {
         if (isDefaultLauncher()) return
         val intent = Intent(Settings.ACTION_HOME_SETTINGS)
         startActivity(intent)
+    }
+
+    private fun checkAndRequestSmartTilePermissions() {
+        val permissionsToRequest = mutableListOf<String>()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.ACTIVITY_RECOGNITION)
+            } else {
+                stepCounterManager.startListening()
+            }
+        } else {
+            stepCounterManager.startListening()
+        }
+
+        val hasCoarse = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasFine = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (!hasCoarse && !hasFine) {
+            permissionsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        } else {
+            weatherManager.fetchWeatherAsync()
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            permissionLauncher.launch(permissionsToRequest.toTypedArray())
+        }
     }
 
     private fun isDefaultLauncher(): Boolean {
