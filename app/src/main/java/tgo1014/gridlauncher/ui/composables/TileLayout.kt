@@ -170,8 +170,46 @@ fun TileLayout(
         }
     }
 
+    // Live data snapshotting during scroll:
+    // Freeze smart tile data and notification maps when scroll begins so continuous background
+    // updates (sensor steps, media progress, battery wattage) do not invalidate or recompose
+    // the grid during fling/scroll gestures. Throttle to 1 Hz during prolonged scrolls.
+    val incomingSmartData = LocalSmartTileData.current
+    val incomingNotifications = LocalAppNotifications.current
+
+    val currentSmartData by rememberUpdatedState(incomingSmartData)
+    val currentNotifications by rememberUpdatedState(incomingNotifications)
+
+    var activeSmartData by remember { mutableStateOf(incomingSmartData) }
+    var activeNotifications by remember { mutableStateOf(incomingNotifications) }
+
+    LaunchedEffect(isScrolling) {
+        if (!isScrolling) {
+            activeSmartData = currentSmartData
+            activeNotifications = currentNotifications
+        } else {
+            // While scrolling is active, snapshot is frozen. Sample at ~1 Hz if scroll is prolonged (>1s).
+            while (kotlinx.coroutines.isActive) {
+                kotlinx.coroutines.delay(1000L)
+                if (tableState.isScrollInProgress) {
+                    activeSmartData = currentSmartData
+                    activeNotifications = currentNotifications
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(incomingSmartData, incomingNotifications) {
+        if (!isScrolling) {
+            activeSmartData = incomingSmartData
+            activeNotifications = incomingNotifications
+        }
+    }
+
     androidx.compose.runtime.CompositionLocalProvider(
-        tgo1014.gridlauncher.ui.theme.LocalIsGridSettled provides isSettled
+        tgo1014.gridlauncher.ui.theme.LocalIsGridSettled provides isSettled,
+        LocalSmartTileData provides activeSmartData,
+        LocalAppNotifications provides activeNotifications
     ) {
         LazyTable(
             state = tableState,

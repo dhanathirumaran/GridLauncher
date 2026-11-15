@@ -174,14 +174,15 @@ fun LiveMediaTileContent(
 
             // Sleek Progress Indicator Bar at Bottom
             if (mediaState.durationMs > 0) {
+                val isSettled = tgo1014.gridlauncher.ui.theme.LocalIsGridSettled.current
                 var currentPosition by remember(mediaState.positionMs, mediaState.isPlaying) {
                     mutableLongStateOf(mediaState.positionMs)
                 }
-                LaunchedEffect(mediaState.isPlaying, mediaState.positionMs) {
-                    if (mediaState.isPlaying && mediaState.durationMs > 0) {
+                LaunchedEffect(mediaState.isPlaying, mediaState.positionMs, isSettled) {
+                    if (mediaState.isPlaying && mediaState.durationMs > 0 && isSettled) {
                         val startWall = SystemClock.elapsedRealtime()
                         val startPos = mediaState.positionMs
-                        while (isActive) {
+                        while (isActive && isSettled) {
                             delay(500)
                             val elapsed = SystemClock.elapsedRealtime() - startWall
                             currentPosition = (startPos + elapsed).coerceAtMost(mediaState.durationMs)
