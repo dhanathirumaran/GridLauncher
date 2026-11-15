@@ -22,6 +22,7 @@ import tgo1014.gridlauncher.ui.models.GridItem
 import tgo1014.gridlauncher.ui.models.SettingsEvent
 import tgo1014.gridlauncher.ui.models.TileEvent
 import tgo1014.gridlauncher.ui.theme.AsyncImage
+import tgo1014.gridlauncher.ui.theme.modifyIf
 
 @Composable
 fun HomeScreen(
@@ -56,6 +57,26 @@ private fun HomeScreen(
 ) = Box(modifier = Modifier.fillMaxSize()) {
     val hazeState = remember { HazeState() }
     if (state.tileSettings.isTransparencyEnabled) {
+        val blurredFile = state.tileSettings.wallpaperBlurredFile
+        val hasBlurred = state.tileSettings.hasBlurredWallpaper && blurredFile != null
+
+        // Layer 1: Pre-blurred wallpaper underlay (captured into Haze for zero real-time GPU shader cost)
+        if (hasBlurred) {
+            key(blurredFile) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(blurredFile)
+                        .crossfade(true)
+                        .build(),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .haze(state = hazeState)
+                )
+            }
+        }
+
+        // Layer 2: Sharp wallpaper (displayed across screen background and in the gaps between tiles)
         key(state.tileSettings.wallpaperFile) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
@@ -65,7 +86,9 @@ private fun HomeScreen(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
-                    .haze(state = hazeState)
+                    .modifyIf(!hasBlurred) {
+                        haze(state = hazeState)
+                    }
             )
         }
     }

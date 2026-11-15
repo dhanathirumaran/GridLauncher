@@ -13,6 +13,8 @@ class RemoveWallpaperUseCase @Inject constructor(
     suspend operator fun invoke() = runCatching {
         context.wallpaperFile.delete()
         context.wallpaperDarkFile.delete()
+        context.wallpaperBlurredFile.delete()
+        context.wallpaperBlurredDarkFile.delete()
         settingsRepository.updateSettings(
             settingsRepository.tileSettingsFlow.first().copy(wallpaperPath = null)
         )

@@ -11,6 +11,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import tgo1014.gridlauncher.data.fastBlur
 import tgo1014.gridlauncher.data.isSystemDarkTheme
 import tgo1014.gridlauncher.data.reduceBitmapBrightness
 import tgo1014.gridlauncher.data.saveToFile
@@ -69,6 +70,12 @@ class StoreWallpaperPickedUseCase @Inject constructor(
     private fun saveBitmapAndGet(bitmap: Bitmap): File {
         bitmap.saveToFile(context.wallpaperFile)
         bitmap.reduceBitmapBrightness().saveToFile(context.wallpaperDarkFile)
+
+        // Pre-blurred wallpaper for zero real-time GPU blur cost during scrolling
+        val blurred = bitmap.fastBlur(radius = 22)
+        blurred.saveToFile(context.wallpaperBlurredFile)
+        blurred.reduceBitmapBrightness().saveToFile(context.wallpaperBlurredDarkFile)
+
         return if (context.isSystemDarkTheme) {
             context.wallpaperDarkFile
         } else {

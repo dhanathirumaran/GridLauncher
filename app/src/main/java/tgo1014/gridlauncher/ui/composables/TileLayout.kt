@@ -119,11 +119,11 @@ fun TileLayout(
         systemBars + PaddingValues(padding) + contentPadding + PaddingValues(bottom = extraBottom)
     }
 
-    val dynamicHazeStyle = remember(tileSettings.blurRadius, tileSettings.tintAlpha) {
+    val dynamicHazeStyle = remember(tileSettings.blurRadius, tileSettings.tintAlpha, tileSettings.hasBlurredWallpaper) {
         HazeStyle(
             backgroundColor = Color.Transparent,
             tint = HazeTint.Color(Color.White.copy(alpha = tileSettings.tintAlpha)),
-            blurRadius = tileSettings.blurRadius.dp,
+            blurRadius = if (tileSettings.hasBlurredWallpaper) 0.dp else tileSettings.blurRadius.dp,
             noiseFactor = 0f
         )
     }
@@ -164,22 +164,15 @@ fun TileLayout(
         }
     }
 
-    // Approach 1 (Scroll-Aware Glass Transition):
-    // When settled, apply full rich Gaussian blur via hazeChild.
-    // When actively scrolling or flinging, switch to lightweight hardware-accelerated translucent glass
-    // to achieve buttery-smooth 60/120 FPS scrolling without GPU shader bottleneck.
+    // Pre-Blurred Wallpaper Underlay:
+    // With pre-blurred underlay, Haze runs with blurRadius = 0.dp (0 GPU shader blur passes during scroll).
+    // hazeChild is permanently active 100% of the time, completely eliminating motion flicker/pop.
     val hazeChildModifier = if (tileSettings.isTransparencyEnabled) {
-        if (isSettled) {
-            Modifier.hazeChild(
-                state = hazeState,
-                style = dynamicHazeStyle,
-                shape = tileShape,
-            )
-        } else {
-            Modifier
-                .clip(tileShape)
-                .background(Color.White.copy(alpha = (tileSettings.tintAlpha * 0.8f).coerceAtLeast(0.12f)))
-        }
+        Modifier.hazeChild(
+            state = hazeState,
+            style = dynamicHazeStyle,
+            shape = tileShape,
+        )
     } else {
         Modifier
     }

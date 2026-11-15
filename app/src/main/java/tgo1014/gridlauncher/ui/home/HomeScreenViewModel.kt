@@ -396,6 +396,7 @@ class HomeScreenViewModel @Inject constructor(
     }
 
     private fun init() = viewModelScope.launch {
+        ensureBlurredWallpaper()
         observeSystemTheme()
         getAppListUseCase()
             .onEach { appList ->
@@ -411,6 +412,12 @@ class HomeScreenViewModel @Inject constructor(
         }
             .onEach { grid -> _stateFlow.update { it.copy(grid = grid) } }
             .launchIn(this)
+    }
+
+    private fun ensureBlurredWallpaper() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            updateWallpaperBasedOnThemeUseCase()
+        }
     }
 
     private fun observeSystemTheme() {

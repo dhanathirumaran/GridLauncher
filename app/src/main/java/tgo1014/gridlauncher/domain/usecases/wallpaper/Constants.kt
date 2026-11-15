@@ -28,6 +28,26 @@ val Context.wallpaperDarkFile: File
         return filesDirFile
     }
 
+val Context.wallpaperBlurredFile: File
+    get() {
+        val filesDirFile = File(filesDir, "wallpaperBlurred.png")
+        val cacheDirFile = File(cacheDir, "wallpaperBlurred.png")
+        if (!filesDirFile.exists() && cacheDirFile.exists()) {
+            runCatching { cacheDirFile.copyTo(filesDirFile, overwrite = true) }
+        }
+        return filesDirFile
+    }
+
+val Context.wallpaperBlurredDarkFile: File
+    get() {
+        val filesDirFile = File(filesDir, "wallpaperBlurredDark.png")
+        val cacheDirFile = File(cacheDir, "wallpaperBlurredDark.png")
+        if (!filesDirFile.exists() && cacheDirFile.exists()) {
+            runCatching { cacheDirFile.copyTo(filesDirFile, overwrite = true) }
+        }
+        return filesDirFile
+    }
+
 
 val AppHazeStyle: HazeStyle
     @Composable get() = HazeStyle(

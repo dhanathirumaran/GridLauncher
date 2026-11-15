@@ -17,6 +17,32 @@ data class TileSettings(
     val wallpaperFile: File?
         get() = wallpaperPath?.let { File(it) }
 
+    val wallpaperBlurredFile: File?
+        get() {
+            if (wallpaperPath == null) return null
+            val file = File(wallpaperPath)
+            val parent = file.parentFile
+            val blurredName = if (file.name.contains("Dark", ignoreCase = true)) {
+                "wallpaperBlurredDark.png"
+            } else {
+                "wallpaperBlurred.png"
+            }
+            return File(parent, blurredName).takeIf { it.exists() } ?: file
+        }
+
+    val hasBlurredWallpaper: Boolean
+        get() {
+            if (wallpaperPath == null) return false
+            val file = File(wallpaperPath)
+            val parent = file.parentFile
+            val blurredName = if (file.name.contains("Dark", ignoreCase = true)) {
+                "wallpaperBlurredDark.png"
+            } else {
+                "wallpaperBlurred.png"
+            }
+            return File(parent, blurredName).exists()
+        }
+
     val isTransparencyEnabled: Boolean
         get() = wallpaperPath != null
 }
