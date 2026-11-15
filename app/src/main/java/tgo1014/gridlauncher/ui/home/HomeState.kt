@@ -13,6 +13,7 @@ data class HomeState(
     val tileSettings: TileSettings = TileSettings(),
     val isSettingsSheetShowing: Boolean = false,
     val isDefaultLauncher: Boolean = false,
+    val isNotificationAccessGranted: Boolean = false,
 ) {
     val isEditMode get() = itemBeingEdited != null
 }

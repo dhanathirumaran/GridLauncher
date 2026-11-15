@@ -16,6 +16,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
+import tgo1014.gridlauncher.ui.composables.LocalAppNotifications
 import tgo1014.gridlauncher.ui.composables.LocalSmartTileData
 import tgo1014.gridlauncher.ui.models.GridItem
 import tgo1014.gridlauncher.ui.models.SettingsEvent
@@ -28,7 +29,11 @@ fun HomeScreen(
 ) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val smartTileData by viewModel.smartTileData.collectAsStateWithLifecycle()
-    CompositionLocalProvider(LocalSmartTileData provides smartTileData) {
+    val notifications by viewModel.notificationsFlow.collectAsStateWithLifecycle()
+    CompositionLocalProvider(
+        LocalSmartTileData provides smartTileData,
+        LocalAppNotifications provides notifications
+    ) {
         HomeScreen(
             state = state,
             onHomeScrolled = viewModel::onSwitchedToHome,

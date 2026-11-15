@@ -38,6 +38,7 @@ fun SettingsBottomSheet(
     tileSettings: TileSettings,
     isShowing: Boolean,
     isDefaultLauncher: Boolean = false,
+    isNotificationAccessGranted: Boolean = false,
     onSettingsEvent: (SettingsEvent) -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState()
@@ -53,6 +54,7 @@ fun SettingsBottomSheet(
             SettingsBottomSheet(
                 tileSettings = tileSettings,
                 isDefaultLauncher = isDefaultLauncher,
+                isNotificationAccessGranted = isNotificationAccessGranted,
                 onSettingsEvent = onSettingsEvent,
             )
         }
@@ -63,6 +65,7 @@ fun SettingsBottomSheet(
 private fun SettingsBottomSheet(
     tileSettings: TileSettings = TileSettings(),
     isDefaultLauncher: Boolean = false,
+    isNotificationAccessGranted: Boolean = false,
     onSettingsEvent: (SettingsEvent) -> Unit = {},
 ) {
     val singlePhotoPickerLauncher = rememberLauncherForActivityResult(
@@ -99,6 +102,25 @@ private fun SettingsBottomSheet(
                 onClick = { onSettingsEvent(SettingsEvent.OnOpenDefaultLauncherSettings) }
             ) {
                 Text(if (isDefaultLauncher) "Change" else "Set Default")
+            }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 4.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Notification Access")
+                Text(
+                    text = if (isNotificationAccessGranted) "Active — contact names shown on live tiles" else "Permission needed for live message tiles",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Button(
+                onClick = { onSettingsEvent(SettingsEvent.OnOpenNotificationAccessSettings) }
+            ) {
+                Text(if (isNotificationAccessGranted) "Settings" else "Enable")
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {

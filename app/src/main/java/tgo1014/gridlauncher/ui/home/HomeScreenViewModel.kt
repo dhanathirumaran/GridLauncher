@@ -70,9 +70,12 @@ class HomeScreenViewModel @Inject constructor(
     private val stepCounterManager: StepCounterManager,
     private val currencyRateManager: CurrencyRateManager,
     private val weatherManager: WeatherManager,
+    private val notificationRepository: NotificationRepository,
 ) : ViewModel() {
 
     private var fullAppList: List<App> = emptyList()
+
+    val notificationsFlow = notificationRepository.notifications
 
     private val _stateFlow = MutableStateFlow(HomeState())
     val stateFlow = combine(_stateFlow, settingsRepository.tileSettingsFlow) { state, settings ->
@@ -245,7 +248,8 @@ class HomeScreenViewModel @Inject constructor(
             SettingsEvent.OnSettingsIconClicked -> _stateFlow.update {
                 it.copy(
                     isSettingsSheetShowing = true,
-                    isDefaultLauncher = isDefaultLauncher()
+                    isDefaultLauncher = isDefaultLauncher(),
+                    isNotificationAccessGranted = notificationRepository.isAccessGranted(context)
                 )
             }
 
@@ -261,6 +265,14 @@ class HomeScreenViewModel @Inject constructor(
             SettingsEvent.OnOpenDefaultLauncherSettings -> {
                 runCatching {
                     val intent = Intent(Settings.ACTION_HOME_SETTINGS).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                }
+            }
+            SettingsEvent.OnOpenNotificationAccessSettings -> {
+                runCatching {
+                    val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     context.startActivity(intent)

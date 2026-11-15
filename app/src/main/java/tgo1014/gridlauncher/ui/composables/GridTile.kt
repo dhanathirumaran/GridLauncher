@@ -1,10 +1,20 @@
 package tgo1014.gridlauncher.ui.composables
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,16 +30,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.Wallpapers
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import tgo1014.gridlauncher.data.notification.NotificationSender
 import tgo1014.gridlauncher.domain.models.App
 import tgo1014.gridlauncher.domain.models.TileSettings
 import tgo1014.gridlauncher.ui.models.GridItem
@@ -121,7 +136,98 @@ fun GridTile(
                 else -> Color.White
             }
         }
-        if (item.width >= 2 && item.height == 1) {
+        if (item.width >= 4 && item.height >= 2) {
+            val liveNotifications = if (!isShortcut) LocalAppNotifications.current[item.app.packageName] else null
+            val hasLiveNotifications = !liveNotifications.isNullOrEmpty()
+            val animatedHorizontalBias by animateFloatAsState(
+                targetValue = if (hasLiveNotifications) -1f else 0f,
+                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                label = "iconHorizontalBias"
+            )
+            val horizontalPadding = (16 + (tileSettings.cornerRadius - 8).coerceAtLeast(0) * 0.2f).dp
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = horizontalPadding, vertical = 8.dp)
+            ) {
+                val iconModifier = Modifier
+                    .size(36.dp)
+                    .align(BiasAlignment(animatedHorizontalBias, 0f))
+
+                if (isPreview) {
+                    Image(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = null,
+                        modifier = iconModifier,
+                    )
+                } else {
+                    AsyncImage(
+                        model = iconModel,
+                        contentDescription = null,
+                        modifier = iconModifier,
+                    )
+                }
+
+                AnimatedVisibility(
+                    visible = hasLiveNotifications,
+                    enter = fadeIn(animationSpec = tween(300, delayMillis = 100)) + expandHorizontally(),
+                    exit = fadeOut(animationSpec = tween(200)) + shrinkHorizontally(),
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxWidth()
+                        .padding(start = 36.dp + 12.dp)
+                ) {
+                    if (liveNotifications != null) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            val sendersToShow = liveNotifications.take(3)
+                            sendersToShow.forEach { sender ->
+                                val countText = if (sender.count > 1) " (${sender.count})" else ""
+                                Text(
+                                    text = "${sender.name}$countText",
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = textColor,
+                                    fontSize = 13.sp,
+                                    lineHeight = 16.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            if (liveNotifications.size > 3) {
+                                Text(
+                                    text = "+${liveNotifications.size - 3} more",
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = textColor.copy(alpha = 0.7f),
+                                    fontSize = 11.sp,
+                                    lineHeight = 13.sp,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = !hasLiveNotifications && !tileSettings.isAppLabelsHidden,
+                    enter = fadeIn(animationSpec = tween(300, delayMillis = 100)),
+                    exit = fadeOut(animationSpec = tween(150)),
+                    modifier = Modifier.align(Alignment.BottomStart)
+                ) {
+                    Text(
+                        text = itemName,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = textColor,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        } else if (item.width >= 2 && item.height == 1) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.fillMaxSize()
