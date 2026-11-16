@@ -47,10 +47,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastMaxOfOrNull
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.zIndex
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeChild
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import eu.wewox.lazytable.LazyTable
 import eu.wewox.lazytable.LazyTableItem
 import eu.wewox.lazytable.LazyTableScrollDirection
@@ -58,16 +57,14 @@ import eu.wewox.lazytable.LazyTableState
 import eu.wewox.lazytable.lazyTableDimensions
 import eu.wewox.lazytable.rememberLazyTableState
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 import tgo1014.gridlauncher.app.Constants.gridColumns
 import tgo1014.gridlauncher.domain.models.App
 import tgo1014.gridlauncher.domain.models.TileSettings
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
 import tgo1014.gridlauncher.ui.models.GridItem
 import tgo1014.gridlauncher.ui.theme.modifyIf
 import tgo1014.gridlauncher.ui.theme.plus
 
-@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun TileLayout(
     grid: List<GridItem>,
@@ -119,15 +116,6 @@ fun TileLayout(
         systemBars + PaddingValues(padding) + contentPadding + PaddingValues(bottom = extraBottom)
     }
 
-    val dynamicHazeStyle = remember(tileSettings.blurRadius, tileSettings.tintAlpha) {
-        HazeStyle(
-            backgroundColor = Color.Transparent,
-            tint = HazeTint.Color(Color.White.copy(alpha = tileSettings.tintAlpha)),
-            blurRadius = tileSettings.blurRadius.dp,
-            noiseFactor = 0f
-        )
-    }
-
     val tileShape = remember(tileSettings.cornerRadius) {
         RoundedCornerShape(tileSettings.cornerRadius)
     }
@@ -150,35 +138,36 @@ fun TileLayout(
     var isScrolling by remember { mutableStateOf(false) }
     var isSettled by remember { mutableStateOf(true) }
 
-    val tableTranslate = tableState.minaBoxState.translate
-    LaunchedEffect(tableTranslate, itemBeingEdited) {
+    // Scroll performance & 120 FPS optimization:
+    // Observe tableState.minaBoxState.translate using snapshotFlow inside LaunchedEffect rather than
+    // reading translate in composition scope. This prevents TileLayout from recomposing on every single
+    // scroll pixel/frame, eliminating list stutter and frame drops.
+    LaunchedEffect(tableState, itemBeingEdited) {
         if (itemBeingEdited != null) {
             isScrolling = false
             isSettled = false
-        } else if (tableTranslate != null) {
-            isScrolling = true
-            isSettled = false
-            kotlinx.coroutines.delay(500L)
-            isScrolling = false
-            isSettled = true
-        } else {
-            isScrolling = false
-            isSettled = true
+            return@LaunchedEffect
         }
-    }
-
-    // Permanent Haze Frosted Glass:
-    // hazeChild is permanently active 100% of the time, completely eliminating motion flicker/pop.
-    // Real-time blur is preserved, while scroll performance is maintained through tile-flip suppression
-    // and live data snapshotting/throttling.
-    val hazeChildModifier = if (tileSettings.isTransparencyEnabled) {
-        Modifier.hazeChild(
-            state = hazeState,
-            style = dynamicHazeStyle,
-            shape = tileShape,
-        )
-    } else {
-        Modifier
+        var settleJob: kotlinx.coroutines.Job? = null
+        var lastTranslate: eu.wewox.minabox.Translate? = null
+        snapshotFlow { tableState.minaBoxState.translate }
+            .collect { currentTranslate ->
+                if (lastTranslate != null && currentTranslate != null &&
+                    (lastTranslate?.x != currentTranslate.x || lastTranslate?.y != currentTranslate.y)
+                ) {
+                    if (!isScrolling) {
+                        isScrolling = true
+                        isSettled = false
+                    }
+                    settleJob?.cancel()
+                    settleJob = kotlinx.coroutines.CoroutineScope(coroutineContext).launch {
+                        kotlinx.coroutines.delay(400L)
+                        isScrolling = false
+                        isSettled = true
+                    }
+                }
+                lastTranslate = currentTranslate
+            }
     }
 
     // Live data snapshotting during scroll:
@@ -271,9 +260,7 @@ fun TileLayout(
                             }
                         },
                         onItemLongClicked = onItemLongClicked,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(hazeChildModifier)
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
             } else {
@@ -331,9 +318,7 @@ fun TileLayout(
                             }
                         },
                         onItemLongClicked = onItemLongClicked,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(hazeChildModifier)
+                        modifier = Modifier.fillMaxSize()
                     )
 
                     // Active Drag Overlay Body (covers the entire tile to capture touch down instantly)
@@ -515,7 +500,7 @@ fun TileLayout(
                     rowsCount = 1
                 )
             },
-            itemContent = { footer(hazeChildModifier) }
+            itemContent = { footer(Modifier) }
         )
     }
     }

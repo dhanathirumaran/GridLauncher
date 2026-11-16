@@ -1,6 +1,7 @@
 package tgo1014.gridlauncher.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -27,6 +29,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
@@ -120,22 +124,45 @@ private fun SettingsIcon(
             .height(40.dp)
             .aspectRatio(1f)
     ) {
-        val contentColor = contentColorFor(MaterialTheme.colorScheme.primaryContainer)
+        val shape = CircleShape
         if (tileSettings.isTransparencyEnabled) {
+            val topRimAlpha = (tileSettings.tintAlpha * 2.5f).coerceIn(0.40f, 0.75f)
+            val bottomRimAlpha = (tileSettings.tintAlpha * 0.8f).coerceIn(0.12f, 0.30f)
+            val rimBrush = Brush.verticalGradient(
+                listOf(
+                    Color.White.copy(alpha = topRimAlpha),
+                    Color.White.copy(alpha = bottomRimAlpha)
+                )
+            )
+            val topAlpha = (tileSettings.tintAlpha * 1.6f).coerceIn(0.10f, 0.90f)
+            val bottomAlpha = (tileSettings.tintAlpha * 0.85f).coerceIn(0.05f, 0.80f)
+            val glassBrush = Brush.verticalGradient(
+                listOf(
+                    Color.White.copy(alpha = topAlpha),
+                    Color.White.copy(alpha = bottomAlpha)
+                )
+            )
             Box(
                 modifier = modifier
+                    .fillMaxSize()
+                    .clip(shape)
+                    .background(glassBrush)
+                    .border(1.dp, rimBrush, shape)
                     .clickable { onClicked() }
                     .padding(8.dp)
             ) {
                 Icon(
                     imageVector = Icons.Filled.Settings,
                     contentDescription = null,
-                    tint = contentColor
+                    tint = Color.White
                 )
             }
         } else {
+            val contentColor = contentColorFor(MaterialTheme.colorScheme.primaryContainer)
             Box(
                 modifier = modifier
+                    .fillMaxSize()
+                    .clip(shape)
                     .background(MaterialTheme.colorScheme.primaryContainer)
                     .clickable { onClicked() }
                     .padding(8.dp)
@@ -147,7 +174,6 @@ private fun SettingsIcon(
                 )
             }
         }
-
     }
 }
 

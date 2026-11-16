@@ -2,6 +2,7 @@ package tgo1014.gridlauncher.ui.composables
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -147,15 +149,48 @@ fun SmartTile(
         }
     }
 
-    // Highlighting background for flashlight when ON
-    val tileBackground = if (!tileSettings.isTransparencyEnabled) {
-        if (type == SmartTileType.FLASHLIGHT && flashlightOn) {
-            MaterialTheme.colorScheme.primary
+    val shape = RoundedCornerShape(tileSettings.cornerRadius)
+    val isFlashlightActive = type == SmartTileType.FLASHLIGHT && flashlightOn
+
+    // Specular Reflection Border (Illuminated Glass Rim):
+    // 1 dp border simulating ambient top-down specular light along the upper glass edge.
+    val rimModifier = if (tileSettings.isTransparencyEnabled) {
+        val topRimAlpha = (tileSettings.tintAlpha * 2.5f).coerceIn(0.40f, 0.75f)
+        val bottomRimAlpha = (tileSettings.tintAlpha * 0.8f).coerceIn(0.12f, 0.30f)
+        val rimBrush = Brush.verticalGradient(
+            listOf(
+                Color.White.copy(alpha = topRimAlpha),
+                Color.White.copy(alpha = bottomRimAlpha)
+            )
+        )
+        Modifier.border(1.dp, rimBrush, shape)
+    } else {
+        Modifier
+    }
+
+    // Highlighting background for flashlight or translucent glass tint
+    val tileBackgroundModifier = if (!tileSettings.isTransparencyEnabled) {
+        if (isFlashlightActive) {
+            Modifier.background(MaterialTheme.colorScheme.primary)
         } else {
-            MaterialTheme.colorScheme.primaryContainer
+            Modifier.background(MaterialTheme.colorScheme.primaryContainer)
         }
     } else {
-        Color.Transparent
+        if (isFlashlightActive) {
+            Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.85f))
+        } else {
+            // Translucent Glass Surface:
+            // Hardware-accelerated top-down ambient gradient matching tileSettings.tintAlpha.
+            val topAlpha = (tileSettings.tintAlpha * 1.6f).coerceIn(0.10f, 0.90f)
+            val bottomAlpha = (tileSettings.tintAlpha * 0.85f).coerceIn(0.05f, 0.80f)
+            val glassBrush = Brush.verticalGradient(
+                listOf(
+                    Color.White.copy(alpha = topAlpha),
+                    Color.White.copy(alpha = bottomAlpha)
+                )
+            )
+            Modifier.background(glassBrush)
+        }
     }
 
     val isSettled = tgo1014.gridlauncher.ui.theme.LocalIsGridSettled.current
@@ -166,7 +201,8 @@ fun SmartTile(
             }
             .tileEditMode(isEditMode)
             .clip(shape)
-            .background(tileBackground)
+            .then(tileBackgroundModifier)
+            .then(rimModifier)
             .combinedClickable(
                 onClick = { onItemClicked(item) },
                 onLongClick = { onItemLongClicked(item) }
