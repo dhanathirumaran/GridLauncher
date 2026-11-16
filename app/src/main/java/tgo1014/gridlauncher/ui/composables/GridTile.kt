@@ -150,6 +150,8 @@ fun GridTile(
                 maxEvents = if (item.height >= 3) 4 else 2
             )
         } else if (item.width >= 4 && item.height >= 2 && isClock && LocalSmartTileData.current.nextAlarm != null) {
+            // Apple Clock-style live alarm widget: shows live analog dial + next alarm details.
+            // Falls through to standard wide tile (centered icon + label) if no alarm is set.
             AppleClockAlarmContent(
                 nextAlarm = LocalSmartTileData.current.nextAlarm!!,
                 textColor = textColor

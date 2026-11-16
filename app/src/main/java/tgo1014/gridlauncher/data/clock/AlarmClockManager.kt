@@ -16,6 +16,9 @@ import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Represents the next scheduled system alarm formatted for UI presentation.
+ */
 data class NextAlarmInfo(
     val triggerTimeMs: Long,
     val formattedTime: String,
@@ -25,6 +28,15 @@ data class NextAlarmInfo(
     val label: String = "ALARM"
 )
 
+/**
+ * Monitors and formats the next upcoming user alarm from Android's AlarmManager.
+ *
+ * - Zero extra permissions required (uses standard public AlarmManager.getNextAlarmClock()).
+ * - BroadcastReceiver listens for NEXT_ALARM_CLOCK_CHANGED, ACTION_TIME_TICK (1-min live updates),
+ *   ACTION_TIME_CHANGED, ACTION_TIMEZONE_CHANGED, and ACTION_DATE_CHANGED.
+ * - Computes localized 12h/24h time, day label ("Today", "Tomorrow", weekday),
+ *   and real-time countdown ("in 7h 30m").
+ */
 @Singleton
 class AlarmClockManager @Inject constructor(
     @ApplicationContext private val context: Context
@@ -53,6 +65,9 @@ class AlarmClockManager @Inject constructor(
         refresh()
     }
 
+    /**
+     * Refreshes the next alarm clock information from AlarmManager and updates the StateFlow.
+     */
     @Synchronized
     fun refresh() {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
@@ -91,6 +106,10 @@ class AlarmClockManager @Inject constructor(
     }
 
     companion object {
+        /**
+         * Computes the day label: "Today", "Tomorrow" (with year-end rollover support),
+         * or the short day of week (e.g. "Wed").
+         */
         fun computeDayLabel(triggerTimeMs: Long, nowMs: Long = System.currentTimeMillis()): String {
             val nowCal = Calendar.getInstance().apply { timeInMillis = nowMs }
             val alarmCal = Calendar.getInstance().apply { timeInMillis = triggerTimeMs }
@@ -109,6 +128,13 @@ class AlarmClockManager @Inject constructor(
             }
         }
 
+        /**
+         * Computes human-readable remaining time countdown:
+         * - "in < 1m"
+         * - "in 45m"
+         * - "in 7h 30m"
+         * - "in 2d 5h"
+         */
         fun computeCountdownLabel(triggerTimeMs: Long, nowMs: Long = System.currentTimeMillis()): String {
             val diffMs = (triggerTimeMs - nowMs).coerceAtLeast(0)
             val totalMinutes = diffMs / 60_000L

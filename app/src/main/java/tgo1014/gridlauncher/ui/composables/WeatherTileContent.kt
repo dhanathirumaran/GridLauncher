@@ -75,6 +75,7 @@ fun WeatherTileContent(
                 )
                 Spacer(modifier = Modifier.height(14.dp))
 
+                // Rain timing status row rendered cleanly in pure monochrome (vector icon + text, no colored boxes)
                 if (weatherState.nextRainSummary.isNotBlank()) {
                     Spacer(modifier = Modifier.height(14.dp))
                     val isRaining = weatherState.nextRainSummary.contains("Rain", ignoreCase = true)

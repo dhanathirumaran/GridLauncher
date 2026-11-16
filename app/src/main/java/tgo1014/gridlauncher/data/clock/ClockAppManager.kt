@@ -4,6 +4,13 @@ import android.content.Context
 import android.content.Intent
 import android.provider.AlarmClock
 
+/**
+ * Detects whether an application is a Clock / Alarm app.
+ *
+ * Checks against known OEM clock package identifiers (Samsung, Google Deskclock,
+ * AOSP, OnePlus, ColorOS, Asus, HTC, Sony) and falls back to PackageManager queries
+ * for AlarmClock.ACTION_SHOW_ALARMS and ACTION_SET_ALARM intents.
+ */
 object ClockAppManager {
 
     val KNOWN_CLOCK_PACKAGES = setOf(
@@ -17,6 +24,10 @@ object ClockAppManager {
         "com.sonyericsson.organizer"               // Sony Clock
     )
 
+    /**
+     * Checks if the package name is a clock app by package ID or by querying
+     * system alarm intent handlers.
+     */
     fun isClockApp(packageName: String, context: Context? = null): Boolean {
         if (packageName in KNOWN_CLOCK_PACKAGES) return true
         if (context != null) {

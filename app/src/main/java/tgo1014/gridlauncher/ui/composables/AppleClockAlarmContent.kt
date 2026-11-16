@@ -20,6 +20,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tgo1014.gridlauncher.data.clock.NextAlarmInfo
 
+/**
+ * Apple-style dual layout for wide clock app tiles (e.g. 5x2, 4x2).
+ *
+ * - Left: 54.dp live AnalogClockFace.
+ * - Right: Pure white AlarmBell icon + "ALARM" header, large formatted time
+ *   (24.sp bold), and day/countdown subtitle (e.g., "Tomorrow • in 7h 30m").
+ */
 @Composable
 fun AppleClockAlarmContent(
     nextAlarm: NextAlarmInfo,

@@ -19,6 +19,14 @@ import java.util.Calendar
 import kotlin.math.cos
 import kotlin.math.sin
 
+/**
+ * Minimalist monochrome analog clock face rendered on a Compose Canvas.
+ *
+ * - Battery-friendly: LaunchedEffect loop syncs every second while visible,
+ *   automatically cancelling when the home screen is navigated away from.
+ * - Renders a circular outer dial ring, 12 hour ticks (major ticks at 12, 3, 6, 9),
+ *   dynamic hour and minute hands computed from device time, and a center hardware pin.
+ */
 @Composable
 fun AnalogClockFace(
     clockColor: Color,
