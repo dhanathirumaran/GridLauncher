@@ -149,7 +149,6 @@ fun SmartTile(
         }
     }
 
-    val shape = RoundedCornerShape(tileSettings.cornerRadius)
     val isFlashlightActive = type == SmartTileType.FLASHLIGHT && flashlightOn
 
     // Specular Reflection Border (Illuminated Glass Rim):

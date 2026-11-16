@@ -149,12 +149,10 @@ fun TileLayout(
             return@LaunchedEffect
         }
         var settleJob: kotlinx.coroutines.Job? = null
-        var lastTranslate: eu.wewox.minabox.Translate? = null
+        var isInitial = true
         snapshotFlow { tableState.minaBoxState.translate }
-            .collect { currentTranslate ->
-                if (lastTranslate != null && currentTranslate != null &&
-                    (lastTranslate?.x != currentTranslate.x || lastTranslate?.y != currentTranslate.y)
-                ) {
+            .collect {
+                if (!isInitial) {
                     if (!isScrolling) {
                         isScrolling = true
                         isSettled = false
@@ -166,7 +164,7 @@ fun TileLayout(
                         isSettled = true
                     }
                 }
-                lastTranslate = currentTranslate
+                isInitial = false
             }
     }
 
