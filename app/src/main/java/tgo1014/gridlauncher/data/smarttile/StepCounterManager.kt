@@ -156,7 +156,9 @@ class StepCounterManager @Inject constructor(
     @Synchronized
     fun refresh() {
         val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-        val savedDay = prefs.getString("LAST_DAY", "")
+        // SharedPreferences.getString returns a platform nullable String?. Using .orEmpty() ensures
+        // a non-null String so Kotlin's lexicographical date comparison (todayStr > savedDay) compiles cleanly.
+        val savedDay = prefs.getString("LAST_DAY", "")?.trim().orEmpty()
         if (savedDay.isNotBlank() && todayStr > savedDay) {
             val isInitialized = prefs.getBoolean("INITIALIZED", false)
             if (isInitialized) {
@@ -192,7 +194,8 @@ class StepCounterManager @Inject constructor(
     @Synchronized
     private fun updateSteps(raw: Int) {
         val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-        val savedDay = prefs.getString("LAST_DAY", "")
+        // Non-null String guarantee for safe lexicographical comparison without platform type ambiguity
+        val savedDay = prefs.getString("LAST_DAY", "")?.trim().orEmpty()
         val lastRaw = prefs.getInt("LAST_RAW_STEPS", -1)
         val isInitialized = prefs.getBoolean("INITIALIZED", false)
         val currentBaseline = prefs.getInt("BASELINE_STEPS", raw)
