@@ -1,6 +1,5 @@
 package tgo1014.gridlauncher.ui.composables
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,13 +11,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -78,29 +75,36 @@ fun WeatherTileContent(
                 )
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Rain Timing Status Pill
-                val isRaining = weatherState.nextRainSummary.contains("Rain", ignoreCase = true)
-                val pillTint = if (isRaining) Color(0x223B82F6) else contentColor.copy(alpha = 0.10f)
-                val rainIcon = if (isRaining) "☔ " else "☀️ "
+                if (weatherState.nextRainSummary.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    val isRaining = weatherState.nextRainSummary.contains("Rain", ignoreCase = true)
+                    val rainIconVector = if (isRaining) SmartTileIcons.Umbrella else SmartTileIcons.WeatherSun
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(pillTint)
-                        .padding(horizontal = 8.dp, vertical = 7.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "$rainIcon${weatherState.nextRainSummary}",
-                        color = contentColor,
-                        fontSize = 11.sp,
-                        lineHeight = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = rainIconVector,
+                            contentDescription = null,
+                            tint = contentColor,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = weatherState.nextRainSummary,
+                            color = contentColor,
+                            fontSize = 12.sp,
+                            lineHeight = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }
@@ -143,24 +147,31 @@ fun WeatherTileContent(
                             modifier = Modifier.padding(bottom = 2.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    val isRaining = weatherState.nextRainSummary.contains("Rain", ignoreCase = true)
-                    val pillTint = if (isRaining) Color(0x223B82F6) else contentColor.copy(alpha = 0.10f)
-                    val rainIcon = if (isRaining) "☔ " else "☀️ "
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(pillTint)
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "$rainIcon${weatherState.nextRainSummary}",
-                            color = contentColor,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                    if (weatherState.nextRainSummary.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        val isRaining = weatherState.nextRainSummary.contains("Rain", ignoreCase = true)
+                        val rainIconVector = if (isRaining) SmartTileIcons.Umbrella else SmartTileIcons.WeatherSun
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = rainIconVector,
+                                contentDescription = null,
+                                tint = contentColor,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = weatherState.nextRainSummary,
+                                color = contentColor,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }

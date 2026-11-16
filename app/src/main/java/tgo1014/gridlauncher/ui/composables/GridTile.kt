@@ -36,6 +36,7 @@ import androidx.compose.ui.tooling.preview.Wallpapers
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tgo1014.gridlauncher.data.calendar.CalendarEventManager
+import tgo1014.gridlauncher.data.clock.ClockAppManager
 import tgo1014.gridlauncher.data.notification.NotificationSender
 import tgo1014.gridlauncher.data.phone.PhoneAppManager
 import tgo1014.gridlauncher.domain.models.App
@@ -137,6 +138,7 @@ fun GridTile(
         val hasLiveNotifications = !effectiveNotifications.isNullOrEmpty()
         val context = LocalContext.current
         val isCalendar = !isShortcut && CalendarEventManager.isCalendarApp(item.app.packageName, context)
+        val isClock = !isShortcut && ClockAppManager.isClockApp(item.app.packageName, context)
         val hasMissedCall = hasLiveNotifications && effectiveNotifications.orEmpty().any { it.isMissedCall }
 
         if (item.width >= 4 && item.height >= 2 && isCalendar) {
@@ -146,6 +148,11 @@ fun GridTile(
                 isPermissionGranted = smartData.isCalendarPermissionGranted,
                 textColor = textColor,
                 maxEvents = if (item.height >= 3) 4 else 2
+            )
+        } else if (item.width >= 4 && item.height >= 2 && isClock && LocalSmartTileData.current.nextAlarm != null) {
+            AppleClockAlarmContent(
+                nextAlarm = LocalSmartTileData.current.nextAlarm!!,
+                textColor = textColor
             )
         } else if (item.width >= 4 && item.height >= 2 && hasMissedCall) {
             AppleMissedCallContent(

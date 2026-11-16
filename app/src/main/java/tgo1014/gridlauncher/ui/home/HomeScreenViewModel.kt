@@ -78,6 +78,7 @@ class HomeScreenViewModel @Inject constructor(
     private val notificationRepository: NotificationRepository,
     private val calendarEventManager: CalendarEventManager,
     private val mediaPlaybackManager: MediaPlaybackManager,
+    private val alarmClockManager: tgo1014.gridlauncher.data.clock.AlarmClockManager,
 ) : ViewModel() {
 
     private var fullAppList: List<App> = emptyList()
@@ -111,6 +112,8 @@ class HomeScreenViewModel @Inject constructor(
         data.copy(isCalendarPermissionGranted = hasPerm)
     }.combine(mediaPlaybackManager.mediaState) { data, media ->
         data.copy(mediaPlaybackState = media)
+    }.combine(alarmClockManager.nextAlarm) { data, alarm ->
+        data.copy(nextAlarm = alarm)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SmartTileData())
 
     init {

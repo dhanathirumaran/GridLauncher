@@ -16,7 +16,8 @@ data class SmartTileData(
     val weatherState: WeatherState = WeatherState(),
     val calendarEvents: List<tgo1014.gridlauncher.data.calendar.CalendarEvent> = emptyList(),
     val isCalendarPermissionGranted: Boolean = false,
-    val mediaPlaybackState: MediaPlaybackState = MediaPlaybackState()
+    val mediaPlaybackState: MediaPlaybackState = MediaPlaybackState(),
+    val nextAlarm: tgo1014.gridlauncher.data.clock.NextAlarmInfo? = null
 )
 
 val LocalSmartTileData = compositionLocalOf { SmartTileData() }

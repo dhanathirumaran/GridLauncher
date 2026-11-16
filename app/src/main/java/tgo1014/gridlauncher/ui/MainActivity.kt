@@ -64,6 +64,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var calendarEventManager: tgo1014.gridlauncher.data.calendar.CalendarEventManager
 
+    @Inject
+    lateinit var alarmClockManager: tgo1014.gridlauncher.data.clock.AlarmClockManager
+
     private val homeScreenViewModel: HomeScreenViewModel by viewModels()
 
     private val permissionLauncher = registerForActivityResult(
@@ -108,6 +111,7 @@ class MainActivity : ComponentActivity() {
         updateAppListJob?.cancel()
         updateAppListJob = lifecycleScope.launch { updateAppListUseCase() }
         calendarEventManager.refresh()
+        alarmClockManager.refresh()
         tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager.sync()
     }
 
