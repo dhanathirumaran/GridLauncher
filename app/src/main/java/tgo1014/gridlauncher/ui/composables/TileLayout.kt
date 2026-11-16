@@ -161,6 +161,9 @@ fun TileLayout(
             kotlinx.coroutines.delay(500L)
             isScrolling = false
             isSettled = true
+        } else {
+            isScrolling = false
+            isSettled = true
         }
     }
 

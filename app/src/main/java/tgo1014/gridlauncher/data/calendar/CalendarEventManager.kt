@@ -226,10 +226,15 @@ class CalendarEventManager @Inject constructor(
 
                     // Determine if this instance belongs to "today" in local time
                     val isForToday = if (allDay) {
-                        val utcCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { timeInMillis = begin }
                         val localCal = Calendar.getInstance().apply { timeInMillis = now }
-                        utcCal.get(Calendar.YEAR) == localCal.get(Calendar.YEAR) &&
-                        utcCal.get(Calendar.DAY_OF_YEAR) == localCal.get(Calendar.DAY_OF_YEAR)
+                        val todayUtc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                            set(localCal.get(Calendar.YEAR), localCal.get(Calendar.MONTH), localCal.get(Calendar.DATE), 0, 0, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }
+                        val todayUtcStart = todayUtc.timeInMillis
+                        val todayUtcEnd = todayUtcStart + 86_400_000L
+                        val effectiveEnd = if (end > begin) end else begin + 86_400_000L
+                        begin < todayUtcEnd && effectiveEnd > todayUtcStart
                     } else {
                         (begin in startOfDay..endOfDay) || (begin <= startOfDay && end >= startOfDay)
                     }

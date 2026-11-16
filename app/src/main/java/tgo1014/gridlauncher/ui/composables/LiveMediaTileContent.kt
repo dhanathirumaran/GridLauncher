@@ -176,17 +176,16 @@ fun LiveMediaTileContent(
             if (mediaState.durationMs > 0) {
                 val isSettled = tgo1014.gridlauncher.ui.theme.LocalIsGridSettled.current
                 var currentPosition by remember(mediaState.positionMs, mediaState.isPlaying) {
-                    mutableLongStateOf(mediaState.positionMs)
+                    mutableLongStateOf(mediaState.livePositionMs)
                 }
-                LaunchedEffect(mediaState.isPlaying, mediaState.positionMs, isSettled) {
+                LaunchedEffect(mediaState.isPlaying, mediaState.positionMs, mediaState.lastPositionUpdateTimeMs, isSettled) {
                     if (mediaState.isPlaying && mediaState.durationMs > 0 && isSettled) {
-                        val startWall = SystemClock.elapsedRealtime()
-                        val startPos = mediaState.positionMs
                         while (isActive && isSettled) {
+                            currentPosition = mediaState.livePositionMs
                             delay(500)
-                            val elapsed = SystemClock.elapsedRealtime() - startWall
-                            currentPosition = (startPos + elapsed).coerceAtMost(mediaState.durationMs)
                         }
+                    } else {
+                        currentPosition = mediaState.livePositionMs
                     }
                 }
                 val progress = (currentPosition.toFloat() / mediaState.durationMs.toFloat()).coerceIn(0f, 1f)

@@ -9,6 +9,7 @@ import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -166,6 +167,7 @@ class MediaPlaybackManager @Inject constructor(
 
         val duration = metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
         val position = playbackState?.position ?: 0L
+        val updateTime = playbackState?.lastPositionUpdateTime?.takeIf { it > 0 } ?: SystemClock.elapsedRealtime()
 
         _mediaState.value = MediaPlaybackState(
             isActive = true,
@@ -176,6 +178,7 @@ class MediaPlaybackManager @Inject constructor(
             albumArt = albumArt,
             durationMs = duration,
             positionMs = position,
+            lastPositionUpdateTimeMs = updateTime,
             packageName = controller.packageName.orEmpty()
         )
     }
