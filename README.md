@@ -1,41 +1,53 @@
 # GridLauncher
 
+[![Android CI](https://github.com/dhanathirumaran/GridLauncher/actions/workflows/android.yml/badge.svg)](https://github.com/dhanathirumaran/GridLauncher/actions)
+[![Latest Release](https://img.shields.io/github/v/release/dhanathirumaran/GridLauncher?color=blue)](https://github.com/dhanathirumaran/GridLauncher/releases)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 ## About
 
-GridLauncher is a modern, fluid Android launcher inspired by the Windows Phone Metro design, built with Jetpack Compose. It features a customizable 8-column grid, live smart tiles (Flashlight, Battery, Step Counter, Currency Exchange, Weather), pinned app shortcuts, smooth animations, and wallpaper blur effects.
+**GridLauncher** is a modern, fluid Android launcher inspired by the Windows Phone Metro design, built entirely with Jetpack Compose. It features a customizable 8-column grid, live Apple-style smart tiles (Alarm & Live Clock, Calendar, Flashlight, Battery, Step Counter, Currency Exchange, Weather, Media Player), pinned app shortcuts, seamless edge-to-edge rendering, and native system wallpaper passthrough with translucent glass tiles.
 
-## Features
+## Key Features
 
-- **Customizable Grid:** 8-column grid with drag-and-drop repositioning and multi-size tile resizing.
-- **Smart Live Tiles:**
-  - Flashlight toggle
-  - Battery percentage & status
-  - Step counter (daily step tracking with reboot continuity)
-  - Currency exchange rate
-  - Weather forecast
-- **Pinned App Shortcuts:** Pin deep shortcuts from third-party apps directly to the grid.
-- **Theming & Personalization:** Custom wallpaper support with transparency, blur radius, tint adjustments, and dynamic Material color extraction.
-- **Edge-to-Edge:** Full modern edge-to-edge support with automatic status and navigation bar icon contrast adaptation.
+- **Customizable Grid:** High-density 8-column layout with fluid drag-and-drop repositioning and multi-size tile resizing.
+- **Smart Live Tiles & Widgets:**
+  - **Live Analog Clock & Next Alarm:** Apple-style wide tile with real-time analog clock hands, system alarm synchronization, and countdown badges.
+  - **Live Calendar Badge:** Normalizes UTC all-day events and displays upcoming calendar appointments.
+  - **Flashlight Tile:** Quick hardware flashlight toggle.
+  - **Battery Telemetry:** Live battery percentage, charging state, wattage, and temperature metrics.
+  - **Hardware Step Counter:** Daily step tracking using hardware pedometer sensors with midnight reset and reboot continuity.
+  - **Currency Exchange Rate:** Real-time currency conversion rates.
+  - **Weather Forecast:** Live weather conditions with clean monochrome iconography.
+  - **Dynamic Media Player:** Context-aware ephemeral playback control tile with collision-free seam injection.
+- **Native System Wallpaper Passthrough:**
+  - True window-level system wallpaper passthrough (`android:windowShowWallpaper="true"`) for static, live, and dynamic Android wallpapers.
+  - Translucent glass tile appearance with customizable opacity/tint slider.
+- **Pinned App Shortcuts & Widgets:** Pin deep shortcuts and AppWidgets from third-party apps directly into the grid.
+- **Banking & UPI Compatibility:** 100% hardened for financial and UPI applications (e.g. BHIM, Google Pay, PhonePe) with a zero-accessibility footprint.
+- **Edge-to-Edge:** Native edge-to-edge support with automatic contrast adaptation for system status and navigation bars.
 
 ## Download
 
-You can find the latest releases and APKs here:
-https://github.com/dhanathirumaran/GridLauncher/releases
+Get the latest APK releases directly from:
+**[GitHub Releases — dhanathirumaran/GridLauncher](https://github.com/dhanathirumaran/GridLauncher/releases)**
 
-Click on **Assets** under the release to download the `.apk`.
+1. Navigate to the [Releases](https://github.com/dhanathirumaran/GridLauncher/releases) page.
+2. Under the latest build, expand **Assets**.
+3. Download the `app-debug.apk` to install on your Android device.
 
 ## Screenshots
-<!-- Upstream reference screenshots are willfully preserved to reflect UI design lineage -->
-<img src="https://github.com/Tgo1014/GridLauncher/assets/8679058/ad0b21b3-fb06-4dae-b77e-26de518642ee" width="400">
-<img src="https://github.com/Tgo1014/GridLauncher/assets/8679058/79a1f486-68e7-4f34-9158-1ca5d94739f6" width="400">
 
-## Fork Heritage & Identity
+<p align="center">
+  <img src="docs/screenshots/screenshot_1.png" width="380" alt="GridLauncher Home Screen">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="docs/screenshots/screenshot_2.png" width="380" alt="GridLauncher Edit Mode">
+</p>
 
-This repository is an actively developed continuation of [Tgo1014/GridLauncher](https://github.com/Tgo1014/GridLauncher).
-The application package identity (`applicationId` and namespace `tgo1014.gridlauncher`) as well as upstream screenshot assets are **willfully and deliberately preserved**:
-- **Upgrade Continuity:** Allows existing users and test devices to upgrade seamlessly in-place without losing grid layouts, pinned shortcuts, or custom smart tile configurations.
-- **Upstream Compatibility:** Maintains binary, IPC, and configuration compatibility with upstream release trees and community builds.
-- **Attribution:** Honors the upstream architectural lineage and design assets under the Apache 2.0 license.
+## Credits & License
 
-Releases and active development are maintained at [dhanathirumaran/GridLauncher](https://github.com/dhanathirumaran/GridLauncher).
+GridLauncher is open source and licensed under the [Apache License 2.0](LICENSE).
 
+- **Lineage:** The foundational launcher architecture originated from [Tiago Araujo's](https://github.com/Tgo1014) open-source project.
+- **Package Identity:** The application ID and namespace (`tgo1014.gridlauncher`) are preserved to ensure continuous, seamless in-place updates for existing test devices and installations.
+- **Active Development:** All active development, feature additions, smart tiles, and releases are developed and maintained at **[dhanathirumaran/GridLauncher](https://github.com/dhanathirumaran/GridLauncher)**.
