@@ -47,7 +47,6 @@ import tgo1014.gridlauncher.domain.usecases.wallpaper.OnSystemThemeChangedUseCas
 import tgo1014.gridlauncher.domain.usecases.wallpaper.RemoveWallpaperUseCase
 import tgo1014.gridlauncher.domain.usecases.wallpaper.StoreWallpaperPickedUseCase
 import tgo1014.gridlauncher.domain.usecases.wallpaper.UpdateWallpaperBasedOnThemeUseCase
-import tgo1014.gridlauncher.services.LockScreenAccessibilityService
 import tgo1014.gridlauncher.ui.composables.SmartTileData
 import tgo1014.gridlauncher.ui.models.GridItem
 import tgo1014.gridlauncher.ui.models.GridItemType
@@ -168,17 +167,10 @@ class HomeScreenViewModel @Inject constructor(
                     flashlightManager.toggle()
                 }
             }
+            @Suppress("DEPRECATION")
             SmartTileType.LOCK_SCREEN -> {
-                val locked = LockScreenAccessibilityService.lockScreen()
-                if (!locked) {
-                    runCatching {
-                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        context.startActivity(intent)
-                        Toast.makeText(context, "Please enable GridLauncher Accessibility Service to lock screen", Toast.LENGTH_LONG).show()
-                    }
-                }
+                // Deprecated: AccessibilityService was removed to ensure full compatibility
+                // with banking and UPI apps (e.g. BHIM, Google Pay, PhonePe).
             }
             SmartTileType.STEP_COUNTER -> {
                 stepCounterManager.startListening()

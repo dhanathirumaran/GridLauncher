@@ -69,17 +69,14 @@
             </intent-filter>
         </receiver>
 
-        <service
-            android:name=".services.LockScreenAccessibilityService"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_service_config" />
-        </service>
+        <!--
+            ACCESSIBILITY SERVICES INTENTIONALLY EXCLUDED:
+            AccessibilityService (previously used for 'Tap to Lock Screen') was removed
+            to ensure 100% compatibility with Indian UPI and global banking apps (e.g. BHIM,
+            Google Pay, PhonePe, YONO SBI). NPCI and RBI security rules actively scan
+            AccessibilityManager.getEnabledAccessibilityServiceList() and block execution
+            if any third-party launcher registers an accessibility service.
+        -->
 
         <service
             android:name=".services.AppNotificationListenerService"

@@ -15,6 +15,14 @@ enum class GridItemType {
 enum class SmartTileType {
     FINDER,
     FLASHLIGHT,
+    /**
+     * @deprecated The Lock Screen tile and its associated AccessibilityService were removed
+     * because Indian UPI / banking apps (e.g. BHIM, Google Pay, PhonePe, YONO SBI) actively scan
+     * AccessibilityManager and block launcher users if an accessibility service is registered.
+     * Retained here solely for backwards-compatible JSON deserialization of legacy grids,
+     * and automatically filtered out in UpdateAppListUseCase.
+     */
+    @Deprecated("Removed to prevent banking and UPI apps (e.g. BHIM) from detecting accessibility services")
     LOCK_SCREEN,
     STEP_COUNTER,
     BATTERY,

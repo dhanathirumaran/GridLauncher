@@ -80,7 +80,9 @@ fun SmartTile(
             }
             Quad("Flashlight", SmartTileIcons.Flashlight, status, null)
         }
+        @Suppress("DEPRECATION")
         SmartTileType.LOCK_SCREEN -> {
+            // Deprecated: LOCK_SCREEN is automatically purged from the grid on launch.
             Quad("Lock Screen", SmartTileIcons.Lock, null, null)
         }
         SmartTileType.STEP_COUNTER -> {

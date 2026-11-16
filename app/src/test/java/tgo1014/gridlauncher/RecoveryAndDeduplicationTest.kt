@@ -116,4 +116,20 @@ class RecoveryAndDeduplicationTest {
         assertTrue(recoveredTrue.isTransparentTilesEnabled)
         assertTrue(recoveredTrue.isTransparencyEnabled)
     }
+
+    @Test
+    fun `legacy grid with LOCK_SCREEN deserializes properly and can be filtered out`() {
+        val legacyJson = """
+            [
+                {"id": 1, "width": 2, "height": 2, "itemType": "SMART_TILE", "smartTileType": "LOCK_SCREEN"},
+                {"id": 2, "width": 2, "height": 2, "itemType": "SMART_TILE", "smartTileType": "FLASHLIGHT"}
+            ]
+        """.trimIndent()
+        val items = json.decodeFromString<List<tgo1014.gridlauncher.ui.models.GridItem>>(legacyJson)
+        assertEquals(2, items.size)
+        @Suppress("DEPRECATION")
+        val filtered = items.filterNot { it.smartTileType == tgo1014.gridlauncher.ui.models.SmartTileType.LOCK_SCREEN }
+        assertEquals(1, filtered.size)
+        assertEquals(tgo1014.gridlauncher.ui.models.SmartTileType.FLASHLIGHT, filtered.first().smartTileType)
+    }
 }

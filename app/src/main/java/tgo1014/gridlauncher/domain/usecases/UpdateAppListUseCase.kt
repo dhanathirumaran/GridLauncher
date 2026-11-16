@@ -65,7 +65,17 @@ class UpdateAppListUseCase @Inject constructor(
                             null // Duplicate tile
                         }
                     }
-                    GridItemType.SHORTCUT, GridItemType.SMART_TILE, GridItemType.WIDGET -> item
+                    GridItemType.SHORTCUT, GridItemType.WIDGET -> item
+                    GridItemType.SMART_TILE -> {
+                        // Purge deprecated LOCK_SCREEN smart tile from existing user grids
+                        // to ensure banking / UPI apps (e.g. BHIM) encounter zero accessibility footprints.
+                        @Suppress("DEPRECATION")
+                        if (item.smartTileType == SmartTileType.LOCK_SCREEN) {
+                            null
+                        } else {
+                            item
+                        }
+                    }
                 }
             }
             val compactedGrid = GridPacker.compact(filteredGrid)
@@ -83,7 +93,6 @@ class UpdateAppListUseCase @Inject constructor(
                 val allSmartTypes = listOf(
                     SmartTileType.FINDER,
                     SmartTileType.FLASHLIGHT,
-                    SmartTileType.LOCK_SCREEN,
                     SmartTileType.STEP_COUNTER,
                     SmartTileType.BATTERY,
                     SmartTileType.CURRENCY,
