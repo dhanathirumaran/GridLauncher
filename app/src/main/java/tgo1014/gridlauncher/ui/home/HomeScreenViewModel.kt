@@ -70,6 +70,8 @@ class HomeScreenViewModel @Inject constructor(
     private val calendarEventManager: CalendarEventManager,
     private val mediaPlaybackManager: MediaPlaybackManager,
     private val alarmClockManager: tgo1014.gridlauncher.data.clock.AlarmClockManager,
+    private val storeWallpaperPickedUseCase: tgo1014.gridlauncher.domain.usecases.wallpaper.StoreWallpaperPickedUseCase,
+    private val removeWallpaperUseCase: tgo1014.gridlauncher.domain.usecases.wallpaper.RemoveWallpaperUseCase,
 ) : ViewModel() {
 
     private var fullAppList: List<App> = emptyList()
@@ -303,6 +305,8 @@ class HomeScreenViewModel @Inject constructor(
             }
 
             is SettingsEvent.OnSettingsUpdated -> settingsRepository.updateSettings(event.tileSettings)
+            is SettingsEvent.OnWallpaperPicked -> storeWallpaperPickedUseCase(event.uri)
+            SettingsEvent.OnWallpaperRemoved -> removeWallpaperUseCase()
             SettingsEvent.OnOpenDefaultLauncherSettings -> {
                 runCatching {
                     val intent = Intent(Settings.ACTION_HOME_SETTINGS).apply {

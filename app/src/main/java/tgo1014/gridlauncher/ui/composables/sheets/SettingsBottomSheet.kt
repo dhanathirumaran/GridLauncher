@@ -1,6 +1,7 @@
 package tgo1014.gridlauncher.ui.composables.sheets
 
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -70,6 +71,7 @@ private fun SettingsBottomSheet(
     isCalendarPermissionGranted: Boolean = false,
     onSettingsEvent: (SettingsEvent) -> Unit = {},
 ) {
+    var blurSlider by remember(tileSettings.blurRadius) { mutableStateOf(tileSettings.blurRadius.toFloat()) }
     var tintSlider by remember(tileSettings.tintAlpha) { mutableStateOf(tileSettings.tintAlpha) }
     var cornerSlider by remember(tileSettings.cornerRadius) { mutableStateOf(tileSettings.cornerRadius.toFloat()) }
 
@@ -167,20 +169,56 @@ private fun SettingsBottomSheet(
                 },
             )
         }
-        // Transparent Glass Tiles Switch:
-        // Decoupled from manual photo picking. Works natively with Android's windowShowWallpaper.
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Transparent Glass Tiles:", modifier = Modifier.weight(1f))
-            Switch(
-                checked = tileSettings.isTransparencyEnabled,
-                onCheckedChange = {
-                    val newSettings = tileSettings.copy(isTransparentTilesEnabled = it)
-                    onSettingsEvent(SettingsEvent.OnSettingsUpdated(newSettings))
+        val singlePhotoPickerLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.PickVisualMedia(),
+            onResult = { uri ->
+                if (uri != null) {
+                    onSettingsEvent(SettingsEvent.OnWallpaperPicked(uri))
                 }
-            )
+            }
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 4.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Enable tile transparency:")
+                Text(
+                    text = "To enable transparency you need to pick your wallpaper manually",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Button(
+                onClick = {
+                    if (tileSettings.isTransparencyEnabled) {
+                        onSettingsEvent(SettingsEvent.OnWallpaperRemoved)
+                    } else {
+                        singlePhotoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    }
+                }
+            ) {
+                Text(if (tileSettings.isTransparencyEnabled) "Remove Image" else "Pick Image")
+            }
         }
 
         if (tileSettings.isTransparencyEnabled) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Tile Blur:", modifier = Modifier.weight(1f))
+                Text("${blurSlider.toInt()} dp", modifier = Modifier.padding(end = 8.dp))
+                Slider(
+                    value = blurSlider,
+                    onValueChange = { blurSlider = it },
+                    onValueChangeFinished = {
+                        onSettingsEvent(SettingsEvent.OnSettingsUpdated(tileSettings.copy(blurRadius = blurSlider.toInt())))
+                    },
+                    valueRange = 0f..30f,
+                    modifier = Modifier.weight(1.5f),
+                )
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Glass Opacity / Tint:", modifier = Modifier.weight(1f))
                 Text("${(tintSlider * 100).toInt()}%", modifier = Modifier.padding(end = 8.dp))

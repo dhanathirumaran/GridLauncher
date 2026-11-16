@@ -137,22 +137,6 @@ fun GridTile(
                         .background(MaterialTheme.colorScheme.primaryContainer)
                 )
             }
-        } else {
-            // Translucent Glass Surface:
-            // Hardware-accelerated top-down ambient gradient matching tileSettings.tintAlpha.
-            val topAlpha = (tileSettings.tintAlpha * 1.6f).coerceIn(0.10f, 0.90f)
-            val bottomAlpha = (tileSettings.tintAlpha * 0.85f).coerceIn(0.05f, 0.80f)
-            val glassBrush = Brush.verticalGradient(
-                listOf(
-                    Color.White.copy(alpha = topAlpha),
-                    Color.White.copy(alpha = bottomAlpha)
-                )
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(glassBrush)
-            )
         }
         val onContainer = MaterialTheme.colorScheme.onPrimaryContainer
         val contentColor = contentColorFor(MaterialTheme.colorScheme.primaryContainer)
@@ -173,8 +157,12 @@ fun GridTile(
         val effectiveNotifications = liveNotifications ?: if (!isShortcut) LocalAppNotifications.current[item.app.packageName] else null
         val hasLiveNotifications = !effectiveNotifications.isNullOrEmpty()
         val context = LocalContext.current
-        val isCalendar = !isShortcut && CalendarEventManager.isCalendarApp(item.app.packageName, context)
-        val isClock = !isShortcut && ClockAppManager.isClockApp(item.app.packageName, context)
+        val isCalendar = remember(item.app.packageName, isShortcut) {
+            !isShortcut && CalendarEventManager.isCalendarApp(item.app.packageName, context)
+        }
+        val isClock = remember(item.app.packageName, isShortcut) {
+            !isShortcut && ClockAppManager.isClockApp(item.app.packageName, context)
+        }
         val hasMissedCall = hasLiveNotifications && effectiveNotifications.orEmpty().any { it.isMissedCall }
 
         if (item.width >= 4 && item.height >= 2 && isCalendar) {

@@ -178,17 +178,7 @@ fun SmartTile(
         if (isFlashlightActive) {
             Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.85f))
         } else {
-            // Translucent Glass Surface:
-            // Hardware-accelerated top-down ambient gradient matching tileSettings.tintAlpha.
-            val topAlpha = (tileSettings.tintAlpha * 1.6f).coerceIn(0.10f, 0.90f)
-            val bottomAlpha = (tileSettings.tintAlpha * 0.85f).coerceIn(0.05f, 0.80f)
-            val glassBrush = Brush.verticalGradient(
-                listOf(
-                    Color.White.copy(alpha = topAlpha),
-                    Color.White.copy(alpha = bottomAlpha)
-                )
-            )
-            Modifier.background(glassBrush)
+            Modifier
         }
     }
 

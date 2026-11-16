@@ -34,8 +34,23 @@ jobs:
     - name: Run gradle tests
       run: ./gradlew test -PversionCode=${{ github.run_number }} -PversionName=1.0.0-build-${{ github.run_number }}
 
+    - name: Build Release APK (R8 Optimized)
+      run: |
+        ./gradlew assembleRelease -PversionCode=${{ github.run_number }} -PversionName=1.0.0-build-${{ github.run_number }}
+        cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/GridLauncher-v1.0.0-build-${{ github.run_number }}-release.apk || true
+
     - name: Build Debug APK
-      run: ./gradlew assembleDebug -PversionCode=${{ github.run_number }} -PversionName=1.0.0-build-${{ github.run_number }}
+      run: |
+        ./gradlew assembleDebug -PversionCode=${{ github.run_number }} -PversionName=1.0.0-build-${{ github.run_number }}
+        cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/GridLauncher-v1.0.0-build-${{ github.run_number }}-debug.apk || true
+
+    - name: Upload Release APK & Mapping
+      uses: actions/upload-artifact@v4
+      with:
+        name: GridLauncher-release
+        path: |
+          app/build/outputs/apk/release/*.apk
+          app/build/outputs/mapping/release/mapping.txt
 
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
@@ -48,8 +63,10 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: 'v1.0.0-build-${{ github.run_number }}'
-        name: 'GridLauncher Build ${{ github.run_number }}'
+        name: 'GridLauncher Build ${{ github.run_number }} (Release & Debug)'
         generate_release_notes: true
         prerelease: true
         files: |
+          app/build/outputs/apk/release/*.apk
           app/build/outputs/apk/debug/*.apk
+          app/build/outputs/mapping/release/mapping.txt

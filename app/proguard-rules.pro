@@ -50,5 +50,10 @@
 -keep class tgo1014.gridlauncher.domain.models.** { *; }
 -keep class tgo1014.gridlauncher.ui.models.** { *; }
 -keep class tgo1014.gridlauncher.data.smarttile.** { *; }
+-keep class tgo1014.gridlauncher.data.calendar.** { *; }
+-keep class tgo1014.gridlauncher.data.clock.** { *; }
+-keep class tgo1014.gridlauncher.data.notification.** { *; }
+-keep class tgo1014.gridlauncher.data.phone.** { *; }
+-keep class tgo1014.gridlauncher.domain.usecases.wallpaper.** { *; }
 
 

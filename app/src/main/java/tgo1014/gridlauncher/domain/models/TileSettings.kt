@@ -5,15 +5,12 @@ import tgo1014.gridlauncher.app.Constants.defaultRadius
 import java.io.File
 
 /**
- * Persisted visual and behavioral settings for GridLauncher tiles and window appearance.
+ * Persisted visual and behavioral settings for GridLauncher tiles and wallpaper appearance.
  *
- * SYSTEM WALLPAPER ARCHITECTURE:
- * - GridLauncher uses Android's native `windowShowWallpaper="true"`.
- * - In earlier versions, `isTransparencyEnabled` was hardcoded to `wallpaperPath != null`,
- *   which forced users to manually pick a photo to get transparent tiles.
- * - By decoupling `isTransparentTilesEnabled: Boolean = true`, tiles render as sleek translucent
- *   glass panels floating directly over the active system wallpaper (static, live, or dynamic)
- *   out of the box, without requiring any manual image picking.
+ * WALLPAPER & FROSTED GLASS BLUR ARCHITECTURE:
+ * - Transparency and real-time frosted glass blur are enabled when a wallpaper is picked.
+ * - When [wallpaperPath] is set, [wallpaperFile] provides the source bitmap for Compose and Haze,
+ *   allowing tiles to render with real-time frosted blur (up to 30 dp) and glass tint opacity.
  */
 @Serializable
 data class TileSettings(
@@ -21,29 +18,12 @@ data class TileSettings(
     val cornerRadius: Int = defaultRadius,
     val isAppLabelsHidden: Boolean = false,
     val wallpaperPath: String? = null,
-    val blurRadius: Int = 12,
+    val blurRadius: Int = 30,
     val tintAlpha: Float = 0.10f,
-    val isTransparentTilesEnabled: Boolean = true,
 ) {
-
-    /**
-     * Legacy wallpaper files are permanently nullified so that Android's native
-     * WindowManager system wallpaper passthrough (windowShowWallpaper=true)
-     * is always active without custom image file overrides.
-     */
     val wallpaperFile: File?
-        get() = null
+        get() = wallpaperPath?.let { File(it) }?.takeIf { it.exists() }
 
-    val wallpaperBlurredFile: File?
-        get() = null
-
-    val hasBlurredWallpaper: Boolean
-        get() = false
-
-    /**
-     * Controls whether tiles render as translucent glass panels.
-     * Defaults to true, enabling immediate system wallpaper passthrough.
-     */
     val isTransparencyEnabled: Boolean
-        get() = isTransparentTilesEnabled
+        get() = wallpaperPath != null
 }

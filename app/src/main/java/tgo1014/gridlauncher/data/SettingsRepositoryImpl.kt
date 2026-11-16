@@ -41,14 +41,7 @@ class SettingsRepositoryImpl @Inject constructor(
                 recovered
             }
         }
-        // SYSTEM WALLPAPER AUTO-MIGRATION:
-        // Any legacy wallpaperPath stored from older manual photo picker versions is permanently
-        // cleared to null, guaranteeing that the Android native system wallpaper is displayed.
-        if (settings.wallpaperPath != null) {
-            settings.copy(wallpaperPath = null)
-        } else {
-            settings
-        }
+        settings
     }
 
     override suspend fun updateSettings(tileSettings: TileSettings) {
@@ -68,11 +61,9 @@ class SettingsRepositoryImpl @Inject constructor(
                     isTileFlipEnabled = obj["isTileFlipEnabled"]?.jsonPrimitive?.booleanOrNull ?: base.isTileFlipEnabled,
                     cornerRadius = obj["cornerRadius"]?.jsonPrimitive?.intOrNull ?: base.cornerRadius,
                     isAppLabelsHidden = obj["isAppLabelsHidden"]?.jsonPrimitive?.booleanOrNull ?: base.isAppLabelsHidden,
-                    wallpaperPath = null,
+                    wallpaperPath = obj["wallpaperPath"]?.jsonPrimitive?.contentOrNull ?: base.wallpaperPath,
                     blurRadius = obj["blurRadius"]?.jsonPrimitive?.intOrNull ?: base.blurRadius,
                     tintAlpha = obj["tintAlpha"]?.jsonPrimitive?.floatOrNull ?: base.tintAlpha,
-                    isTransparentTilesEnabled = obj["isTransparentTilesEnabled"]?.jsonPrimitive?.booleanOrNull
-                        ?: base.isTransparentTilesEnabled
                 )
             }.getOrDefault(base)
         }

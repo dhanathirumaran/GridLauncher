@@ -50,6 +50,9 @@ import androidx.compose.ui.util.fastMaxOfOrNull
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.zIndex
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeChild
 import eu.wewox.lazytable.LazyTable
 import eu.wewox.lazytable.LazyTableItem
 import eu.wewox.lazytable.LazyTableScrollDirection
@@ -118,6 +121,25 @@ fun TileLayout(
 
     val tileShape = remember(tileSettings.cornerRadius) {
         RoundedCornerShape(tileSettings.cornerRadius)
+    }
+
+    val dynamicHazeStyle = remember(tileSettings.blurRadius, tileSettings.tintAlpha) {
+        HazeStyle(
+            backgroundColor = Color.Transparent,
+            tint = HazeTint.Color(Color.White.copy(alpha = tileSettings.tintAlpha)),
+            blurRadius = tileSettings.blurRadius.dp,
+            noiseFactor = 0f
+        )
+    }
+
+    val hazeChildModifier = if (tileSettings.isTransparencyEnabled) {
+        Modifier.hazeChild(
+            state = hazeState,
+            style = dynamicHazeStyle,
+            shape = tileShape,
+        )
+    } else {
+        Modifier
     }
 
     val tableDimensions = remember(gridItemSize) {
@@ -258,7 +280,9 @@ fun TileLayout(
                             }
                         },
                         onItemLongClicked = onItemLongClicked,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(hazeChildModifier)
                     )
                 }
             } else {
@@ -316,7 +340,9 @@ fun TileLayout(
                             }
                         },
                         onItemLongClicked = onItemLongClicked,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(hazeChildModifier)
                     )
 
                     // Active Drag Overlay Body (covers the entire tile to capture touch down instantly)
@@ -498,7 +524,7 @@ fun TileLayout(
                     rowsCount = 1
                 )
             },
-            itemContent = { footer(Modifier) }
+            itemContent = { footer(hazeChildModifier) }
         )
     }
     }

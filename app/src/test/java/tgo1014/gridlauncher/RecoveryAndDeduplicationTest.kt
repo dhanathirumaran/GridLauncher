@@ -73,24 +73,25 @@ class RecoveryAndDeduplicationTest {
     }
 
     @Test
-    fun `TileSettings defaults to transparent tiles enabled without wallpaperPath`() {
+    fun `TileSettings defaults to no wallpaper and transparency disabled`() {
         val settings = TileSettings()
-        assertTrue(settings.isTransparentTilesEnabled)
-        assertTrue(settings.isTransparencyEnabled)
         org.junit.Assert.assertNull(settings.wallpaperPath)
+        org.junit.Assert.assertFalse(settings.isTransparencyEnabled)
+        assertEquals(30, settings.blurRadius)
+        assertEquals(0.10f, settings.tintAlpha, 0.001f)
     }
 
     @Test
-    fun `recoverTileSettings restores isTransparentTilesEnabled correctly`() {
-        val jsonWithFalse = """{"isTransparentTilesEnabled": false}"""
-        val recoveredFalse = SettingsRepositoryImpl.recoverTileSettings(jsonWithFalse, json, null)
-        org.junit.Assert.assertFalse(recoveredFalse.isTransparentTilesEnabled)
-        org.junit.Assert.assertFalse(recoveredFalse.isTransparencyEnabled)
+    fun `recoverTileSettings restores wallpaperPath and enables transparency`() {
+        val jsonWithoutWallpaper = """{"blurRadius": 30}"""
+        val recoveredWithout = SettingsRepositoryImpl.recoverTileSettings(jsonWithoutWallpaper, json, null)
+        org.junit.Assert.assertFalse(recoveredWithout.isTransparencyEnabled)
 
-        val jsonWithTrue = """{"isTransparentTilesEnabled": true}"""
-        val recoveredTrue = SettingsRepositoryImpl.recoverTileSettings(jsonWithTrue, json, null)
-        assertTrue(recoveredTrue.isTransparentTilesEnabled)
-        assertTrue(recoveredTrue.isTransparencyEnabled)
+        val jsonWithWallpaper = """{"wallpaperPath": "/data/user/0/wallpaper.png", "blurRadius": 25}"""
+        val recoveredWith = SettingsRepositoryImpl.recoverTileSettings(jsonWithWallpaper, json, null)
+        assertTrue(recoveredWith.isTransparencyEnabled)
+        assertEquals("/data/user/0/wallpaper.png", recoveredWith.wallpaperPath)
+        assertEquals(25, recoveredWith.blurRadius)
     }
 
     @Test
