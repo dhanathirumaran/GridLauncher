@@ -43,10 +43,6 @@ import tgo1014.gridlauncher.domain.usecases.GetAppListUseCase
 import tgo1014.gridlauncher.domain.usecases.ItemGridSizeChangeUseCase
 import tgo1014.gridlauncher.domain.usecases.MoveGridItemUseCase
 import tgo1014.gridlauncher.domain.usecases.RemoveFromGridUseCase
-import tgo1014.gridlauncher.domain.usecases.wallpaper.OnSystemThemeChangedUseCase
-import tgo1014.gridlauncher.domain.usecases.wallpaper.RemoveWallpaperUseCase
-import tgo1014.gridlauncher.domain.usecases.wallpaper.StoreWallpaperPickedUseCase
-import tgo1014.gridlauncher.domain.usecases.wallpaper.UpdateWallpaperBasedOnThemeUseCase
 import tgo1014.gridlauncher.ui.composables.SmartTileData
 import tgo1014.gridlauncher.ui.models.GridItem
 import tgo1014.gridlauncher.ui.models.GridItemType
@@ -65,10 +61,6 @@ class HomeScreenViewModel @Inject constructor(
     private val itemGridSizeChangeUseCase: ItemGridSizeChangeUseCase,
     private val appsManager: AppsManager,
     private val settingsRepository: SettingsRepository,
-    private val storeWallpaperPickedUseCase: StoreWallpaperPickedUseCase,
-    private val onRemoveWallpaperUseCase: RemoveWallpaperUseCase,
-    private val onSystemThemeChangedUseCase: OnSystemThemeChangedUseCase,
-    private val updateWallpaperBasedOnThemeUseCase: UpdateWallpaperBasedOnThemeUseCase,
     private val flashlightManager: FlashlightManager,
     private val batteryTileManager: BatteryTileManager,
     private val stepCounterManager: StepCounterManager,
@@ -311,8 +303,6 @@ class HomeScreenViewModel @Inject constructor(
             }
 
             is SettingsEvent.OnSettingsUpdated -> settingsRepository.updateSettings(event.tileSettings)
-            is SettingsEvent.OnWallpaperPicked -> storeWallpaperPickedUseCase(event.uri)
-            SettingsEvent.OnWallpaperRemoved -> onRemoveWallpaperUseCase()
             SettingsEvent.OnOpenDefaultLauncherSettings -> {
                 runCatching {
                     val intent = Intent(Settings.ACTION_HOME_SETTINGS).apply {
@@ -376,10 +366,6 @@ class HomeScreenViewModel @Inject constructor(
                 val item = _stateFlow.value.itemBeingEdited ?: return@launch
                 moveGridItemUseCase(item.id, event.direction)
             }
-            is TileEvent.OnSizeChange -> {
-                val item = _stateFlow.value.itemBeingEdited ?: return@launch
-                itemGridSizeChangeUseCase(item.id, event.tileSize)
-            }
             TileEvent.OnTileSettingsSheetDismissed -> _stateFlow.update { it.copy(itemBeingEdited = null) }
             TileEvent.OnRemoveClicked -> {
                 val item = _stateFlow.value.itemBeingEdited ?: return@launch
@@ -391,8 +377,6 @@ class HomeScreenViewModel @Inject constructor(
     }
 
     private fun init() = viewModelScope.launch {
-        ensureBlurredWallpaper()
-        observeSystemTheme()
         getAppListUseCase()
             .onEach { appList ->
                 fullAppList = appList
@@ -407,18 +391,6 @@ class HomeScreenViewModel @Inject constructor(
         }
             .onEach { grid -> _stateFlow.update { it.copy(grid = grid) } }
             .launchIn(this)
-    }
-
-    private fun ensureBlurredWallpaper() {
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            updateWallpaperBasedOnThemeUseCase()
-        }
-    }
-
-    private fun observeSystemTheme() {
-        onSystemThemeChangedUseCase()
-            .onEach { updateWallpaperBasedOnThemeUseCase() }
-            .launchIn(viewModelScope)
     }
 
     private fun resetState() {

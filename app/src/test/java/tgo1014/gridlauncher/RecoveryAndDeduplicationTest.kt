@@ -1,6 +1,5 @@
 package tgo1014.gridlauncher
 
-import android.graphics.BitmapFactory
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -9,7 +8,6 @@ import org.junit.Test
 import tgo1014.gridlauncher.data.AppsManagerDataSourceImpl
 import tgo1014.gridlauncher.data.SettingsRepositoryImpl
 import tgo1014.gridlauncher.domain.models.TileSettings
-import tgo1014.gridlauncher.domain.usecases.wallpaper.StoreWallpaperPickedUseCase
 import tgo1014.gridlauncher.ui.composables.getCalendarDateBadge
 import java.util.Calendar
 
@@ -61,28 +59,6 @@ class RecoveryAndDeduplicationTest {
         val nonArray = "not a json array"
         val recovered = AppsManagerDataSourceImpl.recoverGridItems(nonArray, json)
         assertTrue(recovered.isEmpty())
-    }
-
-    @Test
-    fun `calculateInSampleSize scales down large dimensions appropriately`() {
-        val smallOptions = BitmapFactory.Options().apply {
-            outWidth = 800
-            outHeight = 600
-        }
-        assertEquals(1, StoreWallpaperPickedUseCase.calculateInSampleSize(smallOptions, 1080, 1920))
-
-        val exactOptions = BitmapFactory.Options().apply {
-            outWidth = 1080
-            outHeight = 1920
-        }
-        assertEquals(1, StoreWallpaperPickedUseCase.calculateInSampleSize(exactOptions, 1080, 1920))
-
-        val largeOptions = BitmapFactory.Options().apply {
-            outWidth = 4320
-            outHeight = 7680
-        }
-        val sampleSize = StoreWallpaperPickedUseCase.calculateInSampleSize(largeOptions, 1080, 1920)
-        assertTrue(sampleSize >= 4)
     }
 
     @Test
