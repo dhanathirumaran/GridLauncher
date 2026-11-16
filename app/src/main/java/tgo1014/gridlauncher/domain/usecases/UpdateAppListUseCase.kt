@@ -9,7 +9,7 @@ import tgo1014.gridlauncher.domain.AppsManager
 import tgo1014.gridlauncher.domain.GridPacker
 import tgo1014.gridlauncher.ui.models.GridItem
 import tgo1014.gridlauncher.ui.models.GridItemType
-import tgo1014.gridlauncher.ui.models.SmartTileType
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,6 +26,16 @@ class UpdateAppListUseCase @Inject constructor(
 
     suspend operator fun invoke() = gridUpdateMutex.withLock {
         runCatching {
+            // Purge legacy manual wallpaper files to reclaim disk space and guarantee native system wallpaper passthrough
+            runCatching {
+                File(context.filesDir, "wallpaper.png").delete()
+                File(context.filesDir, "wallpaperDark.png").delete()
+                File(context.filesDir, "wallpaperBlurred.png").delete()
+                File(context.filesDir, "wallpaperBlurredDark.png").delete()
+                File(context.cacheDir, "wallpaper.png").delete()
+                File(context.cacheDir, "wallpaperDark.png").delete()
+            }
+
             appsManager.updateAppsList()
             val installedApps = appsManager.installedAppsFlow.firstOrNull().orEmpty()
             // Guard: If installedApps is empty, DO NOT wipe the grid!

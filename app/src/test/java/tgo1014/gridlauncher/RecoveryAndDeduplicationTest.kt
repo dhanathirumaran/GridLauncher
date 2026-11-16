@@ -132,4 +132,12 @@ class RecoveryAndDeduplicationTest {
         assertEquals(1, filtered.size)
         assertEquals(tgo1014.gridlauncher.ui.models.SmartTileType.FLASHLIGHT, filtered.first().smartTileType)
     }
+
+    @Test
+    fun `recoverTileSettings nullifies legacy wallpaperPath for system wallpaper passthrough`() {
+        val legacyJson = """{"wallpaperPath": "/data/user/0/app/files/wallpaper.png"}"""
+        val recovered = SettingsRepositoryImpl.recoverTileSettings(legacyJson, json, null)
+        org.junit.Assert.assertNull(recovered.wallpaperPath)
+        org.junit.Assert.assertNull(recovered.wallpaperFile)
+    }
 }

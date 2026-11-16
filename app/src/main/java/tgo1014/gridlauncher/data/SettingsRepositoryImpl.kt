@@ -27,7 +27,7 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override val tileSettingsFlow = dataStore.data.map { preferences ->
         val rawJson = preferences[key]
-        if (rawJson.isNullOrBlank()) {
+        val settings = if (rawJson.isNullOrBlank()) {
             TileSettings()
         } else {
             try {
@@ -40,6 +40,14 @@ class SettingsRepositoryImpl @Inject constructor(
                 lastValidSettings = recovered
                 recovered
             }
+        }
+        // SYSTEM WALLPAPER AUTO-MIGRATION:
+        // Any legacy wallpaperPath stored from older manual photo picker versions is permanently
+        // cleared to null, guaranteeing that the Android native system wallpaper is displayed.
+        if (settings.wallpaperPath != null) {
+            settings.copy(wallpaperPath = null)
+        } else {
+            settings
         }
     }
 
@@ -60,10 +68,7 @@ class SettingsRepositoryImpl @Inject constructor(
                     isTileFlipEnabled = obj["isTileFlipEnabled"]?.jsonPrimitive?.booleanOrNull ?: base.isTileFlipEnabled,
                     cornerRadius = obj["cornerRadius"]?.jsonPrimitive?.intOrNull ?: base.cornerRadius,
                     isAppLabelsHidden = obj["isAppLabelsHidden"]?.jsonPrimitive?.booleanOrNull ?: base.isAppLabelsHidden,
-                    wallpaperPath = if (obj.containsKey("wallpaperPath")) {
-                        val p = obj["wallpaperPath"]?.jsonPrimitive?.contentOrNull
-                        if (p == "null") null else p
-                    } else base.wallpaperPath,
+                    wallpaperPath = null,
                     blurRadius = obj["blurRadius"]?.jsonPrimitive?.intOrNull ?: base.blurRadius,
                     tintAlpha = obj["tintAlpha"]?.jsonPrimitive?.floatOrNull ?: base.tintAlpha,
                     isTransparentTilesEnabled = obj["isTransparentTilesEnabled"]?.jsonPrimitive?.booleanOrNull

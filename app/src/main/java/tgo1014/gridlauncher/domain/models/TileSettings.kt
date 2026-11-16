@@ -26,34 +26,19 @@ data class TileSettings(
     val isTransparentTilesEnabled: Boolean = true,
 ) {
 
+    /**
+     * Legacy wallpaper files are permanently nullified so that Android's native
+     * WindowManager system wallpaper passthrough (windowShowWallpaper=true)
+     * is always active without custom image file overrides.
+     */
     val wallpaperFile: File?
-        get() = wallpaperPath?.let { File(it) }
+        get() = null
 
     val wallpaperBlurredFile: File?
-        get() {
-            if (wallpaperPath == null) return null
-            val file = File(wallpaperPath)
-            val parent = file.parentFile
-            val blurredName = if (file.name.contains("Dark", ignoreCase = true)) {
-                "wallpaperBlurredDark.png"
-            } else {
-                "wallpaperBlurred.png"
-            }
-            return File(parent, blurredName).takeIf { it.exists() } ?: file
-        }
+        get() = null
 
     val hasBlurredWallpaper: Boolean
-        get() {
-            if (wallpaperPath == null) return false
-            val file = File(wallpaperPath)
-            val parent = file.parentFile
-            val blurredName = if (file.name.contains("Dark", ignoreCase = true)) {
-                "wallpaperBlurredDark.png"
-            } else {
-                "wallpaperBlurred.png"
-            }
-            return File(parent, blurredName).exists()
-        }
+        get() = false
 
     /**
      * Controls whether tiles render as translucent glass panels.
