@@ -30,6 +30,21 @@ import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Observes, queries, and caches calendar events for today to display in the Apple Calendar tile.
+ *
+ * ARCHITECTURAL DESIGN & RESILIENCE:
+ * 1. UTC All-Day Event Normalization:
+ *    Android CalendarContract stores all-day events normalized to 00:00:00 UTC.
+ *    In UTC+ time zones, this causes events to offset into adjacent days unless normalized
+ *    against local calendar date bounds in UTC time space.
+ * 2. Asynchronous Race-Condition Protection:
+ *    Uses [AtomicLong] `queryVersion`. If multiple queries are triggered in rapid succession,
+ *    stale background query results are discarded if `version != queryVersion.get()`.
+ * 3. Event Expiration & Purging:
+ *    Listens to [Intent.ACTION_TIME_TICK] (every minute) to purge expired timed events
+ *    in real-time without querying the ContentResolver repeatedly.
+ */
 @Singleton
 class CalendarEventManager @Inject constructor(
     @ApplicationContext private val context: Context

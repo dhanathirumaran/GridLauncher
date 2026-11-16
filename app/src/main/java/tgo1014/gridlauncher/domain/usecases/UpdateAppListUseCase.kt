@@ -73,7 +73,10 @@ class UpdateAppListUseCase @Inject constructor(
                 appsManager.setGrid(compactedGrid)
             }
 
-            // 2. Pre-pin smart tiles on first run or if entire grid was lost/empty
+            // 2. Pre-pin smart tiles on first run or if entire grid was lost/empty.
+            // NOTE: We check `!wasInitialized || currentGrid.isEmpty()`.
+            // Do NOT check `!hasSmartTiles` here: if a user intentionally removes every smart tile,
+            // checking `!hasSmartTiles` would re-pin them all on the next onResume.
             val needsInit = !wasInitialized || currentGrid.isEmpty()
 
             if (needsInit) {

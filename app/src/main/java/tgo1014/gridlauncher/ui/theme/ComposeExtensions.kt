@@ -105,6 +105,18 @@ private val overshootEasing = Easing { fraction ->
 
 val LocalIsGridSettled = androidx.compose.runtime.compositionLocalOf { true }
 
+/**
+ * Random 3D tile flip animation effect with lifecycle and scroll gating.
+ *
+ * DESIGN & TIMING RATIONALE:
+ * - Scoped to [Lifecycle.State.RESUMED]: When an app is launched and the launcher goes to background,
+ *   the animation loop pauses immediately, saving CPU and battery.
+ * - 5-Second Return Grace Period: When returning to the home screen from an app, [isFirstAfterResume]
+ *   imposes an initial 5–8 second delay before any tile flips. This prevents jarring, distracting flips
+ *   from triggering immediately upon landing on the home screen.
+ * - Scroll Suppression: Checks [LocalIsGridSettled]. Gated completely while scrolling or flinging,
+ *   preventing dropped frames during list interaction.
+ */
 fun Modifier.flipRandomly(isSettled: Boolean = true) = composed {
     val gridSettled = LocalIsGridSettled.current && isSettled
     if (!gridSettled) return@composed this

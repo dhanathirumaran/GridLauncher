@@ -32,6 +32,10 @@ class AppsManagerDataSourceImpl @Inject constructor(
             }.getOrDefault(emptyList())
         }
 
+    // Two-tier resilience strategy:
+    // 1. In-memory `lastValidGrid` keeps the last known-good grid active across transient parse failures.
+    // 2. Persistent `gridBackupKey` stores the last non-empty valid grid in DataStore, ensuring cold-start
+    //    crashes or corrupt DataStore files recover automatically instead of wiping the user's home screen.
     override val homeGridFlow: Flow<List<GridItem>> = dataStore.data
         .map { preferences ->
             val rawJson = preferences[gridKey]

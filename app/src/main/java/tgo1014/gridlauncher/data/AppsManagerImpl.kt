@@ -83,6 +83,14 @@ class AppsManagerImpl @Inject constructor(
 
     override suspend fun setGrid(grid: List<GridItem>) = appsManagerDataSource.setGrid(grid)
 
+    /**
+     * Scans all launchable applications from PackageManager and updates the data source.
+     *
+     * RESCAN RESILIENCE:
+     * If a caller invokes updateAppsList while a scan is already in flight (e.g., when an app install
+     * broadcast arrives mid-scan), [needsRescan] is flagged and the loop repeats once finished,
+     * ensuring that newly installed or updated apps are never missed.
+     */
     override suspend fun updateAppsList() {
         val job = scanMutex.withLock {
             val running = inFlightScan

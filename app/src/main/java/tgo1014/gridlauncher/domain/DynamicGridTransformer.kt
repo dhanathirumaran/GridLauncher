@@ -4,13 +4,33 @@ import tgo1014.gridlauncher.ui.models.GridItem
 import tgo1014.gridlauncher.ui.models.GridItemType
 import tgo1014.gridlauncher.ui.models.SmartTileType
 
+/**
+ * Transforms the user's persisted base grid into a dynamic effective grid for UI presentation.
+ *
+ * ARCHITECTURAL DESIGN NOTE:
+ * - The Media Tile is EPHEMERAL (id = -999). It is generated exclusively in memory while media
+ *   is actively playing and is NEVER persisted to the database.
+ * - When media playback begins, all tiles below the insertion seam are visually shifted down
+ *   by +2 rows.
+ * - When users drag, resize, or delete tiles while media is playing, the coordinates must be
+ *   translated back from visual space to base grid space via [toBaseGridY] before calling
+ *   domain use cases. Without this translation, database coordinates would be permanently shifted
+ *   by 2 rows, causing layout corruption once media playback terminates.
+ */
 object DynamicGridTransformer {
 
+    /**
+     * Sentinel ID for the ephemeral dynamic media player tile.
+     * All touch handlers, resize gestures, and edit-mode selections must ignore this ID.
+     */
     const val MEDIA_TILE_ID = -999
 
     /**
      * Finds a clean horizontal insertion line where no existing tile straddles the seam.
-     * Prevents overlapping tiles that start above insertionY and extend below it.
+     *
+     * If a multi-row tile starts at row 1 and has height 2 (occupying rows 1 and 2), inserting
+     * at row 2 would bisect and overlap that tile. This loop scans downward until a completely
+     * clear seam boundary is found.
      */
     fun findInsertionY(baseGrid: List<GridItem>): Int {
         if (baseGrid.isEmpty()) return 1

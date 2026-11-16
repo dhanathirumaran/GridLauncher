@@ -27,6 +27,24 @@ data class StepCounterState(
     val hasPermission: Boolean = true
 )
 
+/**
+ * Manages pedometer sensor readings and daily step count aggregation.
+ *
+ * ARCHITECTURAL DESIGN & RESILIENCE:
+ * 1. Hardware Step Counter Sensor (TYPE_STEP_COUNTER):
+ *    Returns total steps taken since device boot. Does NOT reset at midnight.
+ * 2. Midnight Rollover:
+ *    Compares `todayStr > savedDay` lexicographically. Resets baseline at midnight without losing steps.
+ * 3. Timezone Shift Protection:
+ *    If the device's clock or timezone shifts backward (`todayStr < savedDay`), steps are preserved
+ *    and LAST_DAY is updated, preventing a false midnight reset.
+ * 4. Reboot Continuity:
+ *    When `raw < lastRaw`, detects device reboot, captures `PRE_REBOOT_TODAY_STEPS`, and re-establishes
+ *    the baseline for the new boot cycle.
+ * 5. Flash Write Debouncing:
+ *    Avoids writing SharedPreferences on every sensor event (which fires multiple times per second).
+ *    Debounced by 20 steps or 10 seconds.
+ */
 @Singleton
 class StepCounterManager @Inject constructor(
     @ApplicationContext private val context: Context
