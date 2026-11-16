@@ -114,6 +114,13 @@ class CalendarEventManager @Inject constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /**
+     * Invalidates the cached calendar package set.
+     */
+    fun invalidatePackageCache() {
+        Companion.invalidatePackageCache()
+    }
+
     private val _events = MutableStateFlow<List<CalendarEvent>>(emptyList())
     val events = _events.asStateFlow()
 

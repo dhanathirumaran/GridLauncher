@@ -104,7 +104,7 @@ class MainActivity : ComponentActivity() {
                 action == Intent.ACTION_PACKAGE_REPLACED
             ) {
                 // Invalidate package caches so new or uninstalled clock/calendar apps are reflected immediately
-                calendarEventManager.invalidatePackageCache()
+                tgo1014.gridlauncher.data.calendar.CalendarEventManager.invalidatePackageCache()
                 tgo1014.gridlauncher.data.clock.ClockAppManager.invalidateCache()
 
                 // Immediately trigger grid reconciliation on package changes without waiting for onResume
