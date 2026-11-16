@@ -55,7 +55,12 @@ private fun HomeScreen(
     onTileEvent: (TileEvent) -> Unit = {},
 ) = Box(modifier = Modifier.fillMaxSize()) {
     val hazeState = remember { HazeState() }
-    if (state.tileSettings.isTransparencyEnabled) {
+    // SYSTEM WALLPAPER PASSTHROUGH:
+    // If a custom wallpaper image was manually set, render it as background.
+    // By default (wallpaperFile == null), no background image is drawn inside Compose:
+    // the window is transparent (windowShowWallpaper=true) so Android WindowManager
+    // displays the phone's native system wallpaper (static or live) directly beneath the tiles.
+    if (state.tileSettings.isTransparencyEnabled && state.tileSettings.wallpaperFile != null) {
         key(state.tileSettings.wallpaperFile) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)

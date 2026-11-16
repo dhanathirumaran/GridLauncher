@@ -95,4 +95,25 @@ class RecoveryAndDeduplicationTest {
         assertEquals("15", dayOfMonth)
         assertEquals(dayOfWeek, dayOfWeek.uppercase())
     }
+
+    @Test
+    fun `TileSettings defaults to transparent tiles enabled without wallpaperPath`() {
+        val settings = TileSettings()
+        assertTrue(settings.isTransparentTilesEnabled)
+        assertTrue(settings.isTransparencyEnabled)
+        org.junit.Assert.assertNull(settings.wallpaperPath)
+    }
+
+    @Test
+    fun `recoverTileSettings restores isTransparentTilesEnabled correctly`() {
+        val jsonWithFalse = """{"isTransparentTilesEnabled": false}"""
+        val recoveredFalse = SettingsRepositoryImpl.recoverTileSettings(jsonWithFalse, json, null)
+        org.junit.Assert.assertFalse(recoveredFalse.isTransparentTilesEnabled)
+        org.junit.Assert.assertFalse(recoveredFalse.isTransparencyEnabled)
+
+        val jsonWithTrue = """{"isTransparentTilesEnabled": true}"""
+        val recoveredTrue = SettingsRepositoryImpl.recoverTileSettings(jsonWithTrue, json, null)
+        assertTrue(recoveredTrue.isTransparentTilesEnabled)
+        assertTrue(recoveredTrue.isTransparencyEnabled)
+    }
 }

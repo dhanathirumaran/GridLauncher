@@ -65,7 +65,9 @@ class SettingsRepositoryImpl @Inject constructor(
                         if (p == "null") null else p
                     } else base.wallpaperPath,
                     blurRadius = obj["blurRadius"]?.jsonPrimitive?.intOrNull ?: base.blurRadius,
-                    tintAlpha = obj["tintAlpha"]?.jsonPrimitive?.floatOrNull ?: base.tintAlpha
+                    tintAlpha = obj["tintAlpha"]?.jsonPrimitive?.floatOrNull ?: base.tintAlpha,
+                    isTransparentTilesEnabled = obj["isTransparentTilesEnabled"]?.jsonPrimitive?.booleanOrNull
+                        ?: base.isTransparentTilesEnabled
                 )
             }.getOrDefault(base)
         }
