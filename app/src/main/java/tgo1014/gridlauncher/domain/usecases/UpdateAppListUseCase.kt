@@ -9,6 +9,7 @@ import tgo1014.gridlauncher.domain.AppsManager
 import tgo1014.gridlauncher.domain.GridPacker
 import tgo1014.gridlauncher.ui.models.GridItem
 import tgo1014.gridlauncher.ui.models.GridItemType
+import tgo1014.gridlauncher.ui.models.SmartTileType
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
