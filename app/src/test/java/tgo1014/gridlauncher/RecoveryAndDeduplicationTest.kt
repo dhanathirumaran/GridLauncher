@@ -146,10 +146,10 @@ class RecoveryAndDeduplicationTest {
     @Test
     fun `smart tiles are strictly deduplicated by tile type`() {
         val items = listOf(
-            tgo1014.gridlauncher.ui.models.GridItem(id = 1, itemType = tgo1014.gridlauncher.ui.models.GridItemType.SMART_TILE, smartTileType = tgo1014.gridlauncher.ui.models.SmartTileType.WEATHER),
-            tgo1014.gridlauncher.ui.models.GridItem(id = 2, itemType = tgo1014.gridlauncher.ui.models.GridItemType.SMART_TILE, smartTileType = tgo1014.gridlauncher.ui.models.SmartTileType.WEATHER),
-            tgo1014.gridlauncher.ui.models.GridItem(id = 3, itemType = tgo1014.gridlauncher.ui.models.GridItemType.SMART_TILE, smartTileType = tgo1014.gridlauncher.ui.models.SmartTileType.BATTERY),
-            tgo1014.gridlauncher.ui.models.GridItem(id = 4, itemType = tgo1014.gridlauncher.ui.models.GridItemType.SMART_TILE, smartTileType = tgo1014.gridlauncher.ui.models.SmartTileType.BATTERY)
+            tgo1014.gridlauncher.ui.models.GridItem(id = 1, width = 2, itemType = tgo1014.gridlauncher.ui.models.GridItemType.SMART_TILE, smartTileType = tgo1014.gridlauncher.ui.models.SmartTileType.WEATHER),
+            tgo1014.gridlauncher.ui.models.GridItem(id = 2, width = 2, itemType = tgo1014.gridlauncher.ui.models.GridItemType.SMART_TILE, smartTileType = tgo1014.gridlauncher.ui.models.SmartTileType.WEATHER),
+            tgo1014.gridlauncher.ui.models.GridItem(id = 3, width = 2, itemType = tgo1014.gridlauncher.ui.models.GridItemType.SMART_TILE, smartTileType = tgo1014.gridlauncher.ui.models.SmartTileType.BATTERY),
+            tgo1014.gridlauncher.ui.models.GridItem(id = 4, width = 2, itemType = tgo1014.gridlauncher.ui.models.GridItemType.SMART_TILE, smartTileType = tgo1014.gridlauncher.ui.models.SmartTileType.BATTERY)
         )
         val seenTypes = mutableSetOf<tgo1014.gridlauncher.ui.models.SmartTileType>()
         val deduped = items.filter { item ->
