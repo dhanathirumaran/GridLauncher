@@ -44,9 +44,7 @@ class CalendarEventManager @Inject constructor(
             "com.appgenix.bizcal",
             "org.lineageos.etar",
             "ws.xsoh.etar",
-            "com.microsoft.office.outlook",
-            "com.digibites.calendar",
-            "com.anydo"
+            "com.digibites.calendar"
         )
 
         fun isCalendarApp(packageName: String, context: Context? = null): Boolean {
@@ -58,6 +56,8 @@ class CalendarEventManager @Inject constructor(
                     val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR)
                     val resolveInfo = context.packageManager.resolveActivity(intent, 0)
                     if (resolveInfo?.activityInfo?.packageName == packageName) return true
+                    val activities = context.packageManager.queryIntentActivities(intent, 0)
+                    if (activities.any { it.activityInfo?.packageName == packageName }) return true
                 }
             }
             return false

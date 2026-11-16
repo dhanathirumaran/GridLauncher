@@ -36,9 +36,6 @@ class UpdateAppListUseCase @Inject constructor(
 
             val prefs = context.getSharedPreferences("SMART_TILES_PREFS", Context.MODE_PRIVATE)
             val wasInitialized = prefs.getBoolean("SMART_TILES_INITIALIZED", false)
-            // Guard: If launcher was already initialized, an empty currentGrid indicates
-            // DataStore read delay or transient error; do not wipe or regenerate user grid!
-            if (wasInitialized && currentGrid.isEmpty()) return@runCatching
 
             // 1. Remove apps that were uninstalled or disabled from device and retain shortcuts & smart tiles
             val installedAppMap = installedApps.associateBy { it.packageName }
@@ -76,9 +73,8 @@ class UpdateAppListUseCase @Inject constructor(
                 appsManager.setGrid(compactedGrid)
             }
 
-            // 2. Pre-pin smart tiles on first run or if restored empty
-            val hasSmartTiles = currentGrid.any { it.itemType == GridItemType.SMART_TILE }
-            val needsInit = !wasInitialized || !hasSmartTiles
+            // 2. Pre-pin smart tiles on first run or if entire grid was lost/empty
+            val needsInit = !wasInitialized || currentGrid.isEmpty()
 
             if (needsInit) {
                 val allSmartTypes = listOf(

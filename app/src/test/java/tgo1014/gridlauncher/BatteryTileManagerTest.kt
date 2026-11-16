@@ -64,6 +64,28 @@ class BatteryTileManagerTest {
     }
 
     @Test
+    fun calculateChargingWatts_whenOemDriverReportsInMilliAmperes_calculatesCorrectWattage() {
+        // Some OEM kernels (MediaTek, Xiaomi, etc.) report current in mA: 2000 mA (2.0 A) at 4.0V = 8W
+        val watts = BatteryTileManager.calculateChargingWatts(
+            status = BatteryManager.BATTERY_STATUS_CHARGING,
+            voltageMv = 4000,
+            currentUa = 2000
+        )
+        assertEquals(8, watts)
+    }
+
+    @Test
+    fun calculateChargingWatts_whenOemFastChargingInMilliAmperes_calculatesCorrectWattage() {
+        // Fast charging in mA: 3000 mA (3.0 A) at 9.0V = 27W
+        val watts = BatteryTileManager.calculateChargingWatts(
+            status = BatteryManager.BATTERY_STATUS_CHARGING,
+            voltageMv = 9000,
+            currentUa = 3000
+        )
+        assertEquals(27, watts)
+    }
+
+    @Test
     fun evaluateBluetoothState_whenDisconnectedAction_clearsAccessoryState() {
         val result = BatteryTileManager.evaluateBluetoothState(
             action = "android.bluetooth.device.action.ACL_DISCONNECTED",

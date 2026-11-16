@@ -47,6 +47,9 @@ class StepCounterManager @Inject constructor(
     private val _todaySteps = MutableStateFlow(0)
     val todaySteps = _todaySteps.asStateFlow()
 
+    private var lastPersistedRaw = -1
+    private var lastPersistedTimeMs = 0L
+
     private val midnightReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context?, intent: Intent?) {
             when (intent?.action) {
@@ -112,6 +115,14 @@ class StepCounterManager @Inject constructor(
     fun stopListening() {
         try {
             sensorManager?.unregisterListener(this)
+            val isInitialized = prefs.getBoolean("INITIALIZED", false)
+            if (isInitialized && lastPersistedRaw != -1) {
+                val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+                prefs.edit()
+                    .putString("LAST_DAY", todayStr)
+                    .putInt("LAST_RAW_STEPS", lastPersistedRaw)
+                    .apply()
+            }
         } catch (_: Exception) {}
     }
 
@@ -128,7 +139,7 @@ class StepCounterManager @Inject constructor(
     fun refresh() {
         val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
         val savedDay = prefs.getString("LAST_DAY", "")
-        if (savedDay != todayStr) {
+        if (savedDay.isNotBlank() && todayStr > savedDay) {
             val isInitialized = prefs.getBoolean("INITIALIZED", false)
             if (isInitialized) {
                 val lastRaw = prefs.getInt("LAST_RAW_STEPS", 0)
@@ -141,6 +152,9 @@ class StepCounterManager @Inject constructor(
             _todaySteps.value = 0
             _stepCounterState.value = _stepCounterState.value.copy(steps = 0)
             return
+        } else if (savedDay.isNotBlank() && todayStr < savedDay) {
+            // Timezone shifted backward: keep current steps and align LAST_DAY
+            prefs.edit().putString("LAST_DAY", todayStr).apply()
         }
         val isInitialized = prefs.getBoolean("INITIALIZED", false)
         if (!isInitialized) {
@@ -166,22 +180,37 @@ class StepCounterManager @Inject constructor(
         val currentBaseline = prefs.getInt("BASELINE_STEPS", raw)
         val currentPreReboot = prefs.getInt("PRE_REBOOT_TODAY_STEPS", 0)
 
+        // Only treat as a new day if todayStr is strictly after savedDay
+        val isNewDay = savedDay.isNotBlank() && todayStr > savedDay
+        val isTimezoneRollback = savedDay.isNotBlank() && todayStr < savedDay
+
         val result = computeStepsOnSensorEvent(
             raw = raw,
             lastRaw = lastRaw,
             currentBaseline = currentBaseline,
             currentPreReboot = currentPreReboot,
-            isNewDay = (savedDay != todayStr),
+            isNewDay = isNewDay,
             isInitialized = isInitialized
         )
 
-        prefs.edit()
-            .putString("LAST_DAY", todayStr)
-            .putInt("BASELINE_STEPS", result.baseline)
-            .putInt("PRE_REBOOT_TODAY_STEPS", result.preReboot)
-            .putInt("LAST_RAW_STEPS", raw)
-            .putBoolean("INITIALIZED", true)
-            .apply()
+        val shouldPersist = isNewDay ||
+                isTimezoneRollback ||
+                !isInitialized ||
+                (lastRaw != -1 && raw < lastRaw) ||
+                (raw - lastPersistedRaw >= 25) ||
+                (System.currentTimeMillis() - lastPersistedTimeMs >= 15_000L)
+
+        if (shouldPersist) {
+            lastPersistedRaw = raw
+            lastPersistedTimeMs = System.currentTimeMillis()
+            prefs.edit()
+                .putString("LAST_DAY", todayStr)
+                .putInt("BASELINE_STEPS", result.baseline)
+                .putInt("PRE_REBOOT_TODAY_STEPS", result.preReboot)
+                .putInt("LAST_RAW_STEPS", raw)
+                .putBoolean("INITIALIZED", true)
+                .apply()
+        }
 
         _todaySteps.value = result.todaySteps
         _stepCounterState.value = _stepCounterState.value.copy(steps = result.todaySteps)

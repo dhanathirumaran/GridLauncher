@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -134,7 +135,8 @@ fun GridTile(
         }
         val effectiveNotifications = liveNotifications ?: if (!isShortcut) LocalAppNotifications.current[item.app.packageName] else null
         val hasLiveNotifications = !effectiveNotifications.isNullOrEmpty()
-        val isCalendar = !isShortcut && CalendarEventManager.isCalendarApp(item.app.packageName)
+        val context = LocalContext.current
+        val isCalendar = !isShortcut && CalendarEventManager.isCalendarApp(item.app.packageName, context)
         val hasMissedCall = hasLiveNotifications && effectiveNotifications.orEmpty().any { it.isMissedCall }
 
         if (item.width >= 4 && item.height >= 2 && isCalendar) {

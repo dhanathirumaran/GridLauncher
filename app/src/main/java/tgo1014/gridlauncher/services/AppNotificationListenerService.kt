@@ -31,7 +31,13 @@ class AppNotificationListenerService : NotificationListenerService() {
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
         isConnected = false
-        scheduleSync()
+        handler.removeCallbacks(syncRunnable)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        isConnected = false
+        handler.removeCallbacksAndMessages(null)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {

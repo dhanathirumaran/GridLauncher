@@ -38,6 +38,8 @@ class AppsManagerImpl @Inject constructor(
     private val scanMutex = Mutex()
     @Volatile
     private var inFlightScan: Deferred<Unit>? = null
+    @Volatile
+    private var needsRescan = false
 
     // Startup scanning is centralized in UpdateAppListUseCase (invoked by MainActivity)
     // to avoid redundant concurrent package scanning on startup.
@@ -85,15 +87,30 @@ class AppsManagerImpl @Inject constructor(
         val job = scanMutex.withLock {
             val running = inFlightScan
             if (running != null && running.isActive) {
+                needsRescan = true
                 running
             } else {
+                needsRescan = false
                 scope.async {
                     try {
-                        val apps = fetchAllApps()
-                        appsManagerDataSource.setAppList(apps)
+                        while (true) {
+                            val apps = fetchAllApps()
+                            appsManagerDataSource.setAppList(apps)
+                            val shouldRepeat = scanMutex.withLock {
+                                if (needsRescan) {
+                                    needsRescan = false
+                                    true
+                                } else {
+                                    inFlightScan = null
+                                    false
+                                }
+                            }
+                            if (!shouldRepeat) break
+                        }
                     } finally {
                         scanMutex.withLock {
                             inFlightScan = null
+                            needsRescan = false
                         }
                     }
                 }.also { inFlightScan = it }

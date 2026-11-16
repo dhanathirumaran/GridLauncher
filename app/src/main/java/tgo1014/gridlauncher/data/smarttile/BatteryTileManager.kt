@@ -125,15 +125,21 @@ class BatteryTileManager @Inject constructor(
 
                         if (isAudioConnected) {
                             val bonded = adapter.bondedDevices.orEmpty()
-                            for (device in bonded) {
-                                val batteryLevel = getDeviceBattery(device)
-                                if (batteryLevel != null && batteryLevel in 0..100) {
-                                    btName = getDeviceName(device)
-                                    btBattery = batteryLevel
-                                    isConnectedBt = true
-                                    connectedDeviceAddress = device.address
-                                    break
-                                }
+                            val connectedDevices = bonded.filter { isDeviceConnected(it) }
+                            val targetDevice = connectedDevices.find { it.address == connectedDeviceAddress && getDeviceBattery(it) != null }
+                                ?: connectedDevices.find { getDeviceBattery(it) != null }
+                                ?: connectedDevices.firstOrNull()
+
+                            if (targetDevice != null) {
+                                btName = getDeviceName(targetDevice)
+                                btBattery = getDeviceBattery(targetDevice)
+                                isConnectedBt = true
+                                connectedDeviceAddress = targetDevice.address
+                            } else {
+                                btName = null
+                                btBattery = null
+                                isConnectedBt = false
+                                connectedDeviceAddress = null
                             }
                         } else if (connectedDeviceAddress == null) {
                             btName = null
@@ -176,6 +182,13 @@ class BatteryTileManager @Inject constructor(
         } else {
             device.name ?: "Accessory"
         }
+    }
+
+    private fun isDeviceConnected(device: BluetoothDevice): Boolean {
+        return runCatching {
+            val method = device.javaClass.getMethod("isConnected")
+            method.invoke(device) as? Boolean ?: false
+        }.getOrDefault(false)
     }
 
     private fun getDeviceBattery(device: BluetoothDevice): Int? {
@@ -247,7 +260,15 @@ class BatteryTileManager @Inject constructor(
             }
             val voltageV = voltageMv / 1000f
             // Android standard BATTERY_PROPERTY_CURRENT_NOW is in microamperes (µA).
-            val currentA = abs(currentUa) / 1_000_000f
+            // Many OEM kernels (MediaTek, Xiaomi, Sony, etc.) report in milliamperes (mA).
+            // Valid phone charge currents are 100mA to 15,000mA (0.1A to 15A).
+            // Values in 100..15_000 are mA; values > 15_000 are µA.
+            val rawAbs = abs(currentUa)
+            val currentA = when {
+                rawAbs in 100..15_000 -> rawAbs / 1_000f
+                rawAbs > 15_000 -> rawAbs / 1_000_000f
+                else -> 0f
+            }
             val calculatedWatts = voltageV * currentA
             return if (calculatedWatts >= 1.0f) {
                 calculatedWatts.roundToInt().coerceIn(1, 120)

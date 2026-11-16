@@ -22,6 +22,7 @@ class AppsManagerDataSourceImpl @Inject constructor(
 
     private val appListKey = stringPreferencesKey("appListKey")
     private val gridKey = stringPreferencesKey("gridKey")
+    private val gridBackupKey = stringPreferencesKey("gridBackupKey")
     private var lastValidGrid: List<GridItem>? = null
 
     override var installedAppsList: Flow<List<App>> = dataStore.data
@@ -35,6 +36,13 @@ class AppsManagerDataSourceImpl @Inject constructor(
         .map { preferences ->
             val rawJson = preferences[gridKey]
             if (rawJson.isNullOrBlank()) {
+                val backup = preferences[gridBackupKey]
+                if (!backup.isNullOrBlank()) {
+                    runCatching { json.decodeFromString<List<GridItem>>(backup) }.getOrNull()?.also {
+                        lastValidGrid = it
+                        return@map it
+                    }
+                }
                 emptyList()
             } else {
                 try {
@@ -43,12 +51,22 @@ class AppsManagerDataSourceImpl @Inject constructor(
                     decoded
                 } catch (e: Exception) {
                     android.util.Log.e("AppsManagerDataSource", "Failed to decode home grid from JSON, attempting recovery", e)
-                    val recovered = recoverGridItems(rawJson, json)
-                    if (recovered.isNotEmpty()) {
-                        lastValidGrid = recovered
-                        recovered
+                    val backup = preferences[gridBackupKey]
+                    val backupDecoded = if (!backup.isNullOrBlank()) {
+                        runCatching { json.decodeFromString<List<GridItem>>(backup) }.getOrNull()
+                    } else null
+
+                    if (backupDecoded != null && backupDecoded.isNotEmpty()) {
+                        lastValidGrid = backupDecoded
+                        backupDecoded
                     } else {
-                        lastValidGrid ?: emptyList()
+                        val recovered = recoverGridItems(rawJson, json)
+                        if (recovered.isNotEmpty()) {
+                            lastValidGrid = recovered
+                            recovered
+                        } else {
+                            lastValidGrid ?: emptyList()
+                        }
                     }
                 }
             }
@@ -63,7 +81,11 @@ class AppsManagerDataSourceImpl @Inject constructor(
     override suspend fun setGrid(grid: List<GridItem>) {
         lastValidGrid = grid
         dataStore.edit {
-            it[gridKey] = json.encodeToString(grid)
+            val encoded = json.encodeToString(grid)
+            it[gridKey] = encoded
+            if (grid.isNotEmpty()) {
+                it[gridBackupKey] = encoded
+            }
         }
     }
 

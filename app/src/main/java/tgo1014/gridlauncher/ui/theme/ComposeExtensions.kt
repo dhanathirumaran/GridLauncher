@@ -30,6 +30,9 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import coil3.compose.AsyncImagePainter
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlin.random.Random
 
 operator fun PaddingValues.plus(that: PaddingValues): PaddingValues = object : PaddingValues {
@@ -106,23 +109,37 @@ fun Modifier.flipRandomly(isSettled: Boolean = true) = composed {
     val gridSettled = LocalIsGridSettled.current && isSettled
     if (!gridSettled) return@composed this
 
+    val lifecycleOwner = LocalLifecycleOwner.current
     val animatedFloat = remember { Animatable(0f) }
 
-    LaunchedEffect(gridSettled) {
+    LaunchedEffect(gridSettled, lifecycleOwner) {
         if (!gridSettled) {
             animatedFloat.snapTo(0f)
             return@LaunchedEffect
         }
-        while (true) {
-            val delayMs = Random.nextLong(15_000L, 30_000L)
-            kotlinx.coroutines.delay(delayMs)
-            animatedFloat.animateTo(
-                targetValue = 360f,
-                animationSpec = tween(
-                    durationMillis = 1000,
-                    easing = overshootEasing
-                )
-            )
+        try {
+            lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                animatedFloat.snapTo(0f)
+                var isFirstAfterResume = true
+                while (true) {
+                    val delayMs = if (isFirstAfterResume) {
+                        isFirstAfterResume = false
+                        5_000L + Random.nextLong(0L, 3_000L)
+                    } else {
+                        Random.nextLong(15_000L, 30_000L)
+                    }
+                    kotlinx.coroutines.delay(delayMs)
+                    animatedFloat.animateTo(
+                        targetValue = 360f,
+                        animationSpec = tween(
+                            durationMillis = 1000,
+                            easing = overshootEasing
+                        )
+                    )
+                    animatedFloat.snapTo(0f)
+                }
+            }
+        } finally {
             animatedFloat.snapTo(0f)
         }
     }

@@ -82,6 +82,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val defaultLauncherRoleLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        // User answered or dismissed the default launcher prompt
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -122,7 +128,7 @@ class MainActivity : ComponentActivity() {
                 val roleManager = getSystemService(Context.ROLE_SERVICE) as? RoleManager
                 if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_HOME)) {
                     val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME)
-                    startActivity(intent)
+                    defaultLauncherRoleLauncher.launch(intent)
                     return@runCatching true
                 }
             }
