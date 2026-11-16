@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.text.format.DateFormat
+import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -60,7 +61,12 @@ class AlarmClockManager @Inject constructor(
                 addAction(Intent.ACTION_TIMEZONE_CHANGED)
                 addAction(Intent.ACTION_DATE_CHANGED)
             }
-            context.registerReceiver(alarmReceiver, filter)
+            ContextCompat.registerReceiver(
+                context,
+                alarmReceiver,
+                filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
         }
         refresh()
     }
@@ -107,23 +113,40 @@ class AlarmClockManager @Inject constructor(
 
     companion object {
         /**
-         * Computes the day label: "Today", "Tomorrow" (with year-end rollover support),
+         * Computes the day label: "Today", "Tomorrow" (with canonical year-end and month-end rollover),
          * or the short day of week (e.g. "Wed").
+         *
+         * CALENDAR DAY BOUNDARY NORMALIZATION:
+         * Previously, checking `nowCal.get(Calendar.MONTH) == Calendar.DECEMBER` without verifying
+         * that today is December 31 caused any January 1 alarm to show "Tomorrow" for the entire month
+         * of December (e.g., an alarm on Jan 1 showed "Tomorrow" on Dec 1).
+         *
+         * By normalizing both [nowMs] and [triggerTimeMs] to midnight (00:00:00.000) and adding
+         * exactly 1 calendar day to [nowMidnight], we achieve a canonical date comparison that handles
+         * month rollovers, leap years, daylight saving time (DST) shifts, and year boundaries seamlessly.
          */
         fun computeDayLabel(triggerTimeMs: Long, nowMs: Long = System.currentTimeMillis()): String {
-            val nowCal = Calendar.getInstance().apply { timeInMillis = nowMs }
-            val alarmCal = Calendar.getInstance().apply { timeInMillis = triggerTimeMs }
-
-            val nowYear = nowCal.get(Calendar.YEAR)
-            val nowDay = nowCal.get(Calendar.DAY_OF_YEAR)
-
-            val alarmYear = alarmCal.get(Calendar.YEAR)
-            val alarmDay = alarmCal.get(Calendar.DAY_OF_YEAR)
+            val nowMidnight = Calendar.getInstance().apply {
+                timeInMillis = nowMs
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            val tomorrowMidnight = (nowMidnight.clone() as Calendar).apply {
+                add(Calendar.DAY_OF_YEAR, 1)
+            }
+            val alarmMidnight = Calendar.getInstance().apply {
+                timeInMillis = triggerTimeMs
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
 
             return when {
-                alarmYear == nowYear && alarmDay == nowDay -> "Today"
-                (alarmYear == nowYear && alarmDay == nowDay + 1) ||
-                (alarmYear == nowYear + 1 && nowCal.get(Calendar.MONTH) == Calendar.DECEMBER && alarmCal.get(Calendar.MONTH) == Calendar.JANUARY && alarmDay == 1) -> "Tomorrow"
+                alarmMidnight.timeInMillis == nowMidnight.timeInMillis -> "Today"
+                alarmMidnight.timeInMillis == tomorrowMidnight.timeInMillis -> "Tomorrow"
                 else -> SimpleDateFormat("EEE", Locale.getDefault()).format(Date(triggerTimeMs))
             }
         }

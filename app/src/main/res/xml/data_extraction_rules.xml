@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
+        <!-- Exclude large cached icon bitmaps and full-screen wallpaper images to prevent exceeding 25 MB quota -->
+        <exclude domain="file" path="icons" />
+        <exclude domain="file" path="wallpaper.png" />
+        <exclude domain="file" path="wallpaperDark.png" />
+        <exclude domain="file" path="wallpaperBlurred.png" />
+        <exclude domain="file" path="wallpaperBlurredDark.png" />
+
+        <!-- Exclude volatile hardware telemetry and sensor cache -->
         <exclude domain="sharedpref" path="STEP_COUNTER_PREFS.xml" />
         <exclude domain="sharedpref" path="WEATHER_PREFS.xml" />
         <exclude domain="sharedpref" path="CURRENCY_PREFS.xml" />

@@ -33,4 +33,18 @@ class FakeAppsManager : AppsManager {
     override suspend fun setGrid(grid: List<GridItem>) {
         _homeGridFlow.update { grid }
     }
+
+    override suspend fun updateGrid(transform: (List<GridItem>) -> List<GridItem>): List<GridItem> {
+        val updated = transform(_homeGridFlow.value)
+        _homeGridFlow.value = updated
+        return updated
+    }
+
+    override suspend fun updateGridAndSmartTiles(
+        transform: (List<GridItem>, Boolean) -> Pair<List<GridItem>, Boolean>
+    ): List<GridItem> {
+        val (updated, _) = transform(_homeGridFlow.value, false)
+        _homeGridFlow.value = updated
+        return updated
+    }
 }

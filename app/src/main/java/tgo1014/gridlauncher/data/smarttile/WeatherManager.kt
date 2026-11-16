@@ -213,10 +213,19 @@ class WeatherManager @Inject constructor(
         }
     }
 
+    /**
+     * Interprets WMO (World Meteorological Organization) weather interpretation codes returned by Open-Meteo.
+     * - Code 0: Clear sky
+     * - Code 1: Mainly clear
+     * - Code 2: Partly cloudy
+     * - Code 3: Overcast (100% cloud cover)
+     */
     private fun interpretWeatherCode(code: Int): String {
         return when (code) {
             0 -> "Clear"
-            1, 2, 3 -> "Partly Cloudy"
+            1 -> "Mainly Clear"
+            2 -> "Partly Cloudy"
+            3 -> "Overcast"
             45, 48 -> "Foggy"
             51, 53, 55 -> "Drizzle"
             56, 57 -> "Freezing Drizzle"

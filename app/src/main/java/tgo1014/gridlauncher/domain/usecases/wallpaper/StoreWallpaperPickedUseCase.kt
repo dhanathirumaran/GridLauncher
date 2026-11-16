@@ -8,6 +8,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -23,31 +24,48 @@ class StoreWallpaperPickedUseCase @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settingsRepository: SettingsRepository,
 ) {
+    /**
+     * Decodes and persists the picked wallpaper bitmap and updates [TileSettings.wallpaperTimestamp].
+     *
+     * CACHE INVALIDATION & STREAM RESILIENCE:
+     * 1. Reading URI bytes once into memory prevents issues where Android's PhotoPicker temporary
+     *    stream grant cannot be reopened for a second bounds-checking pass.
+     * 2. Updating [TileSettings.wallpaperTimestamp] guarantees that Compose and Coil detect that
+     *    the wallpaper has changed, immediately invalidating any stale bitmap in memory cache.
+     */
     suspend operator fun invoke(uri: Uri) = runCatching {
         withContext(Dispatchers.IO) {
             val metrics = context.resources.displayMetrics
             val reqWidth = metrics.widthPixels.coerceAtLeast(1080)
             val reqHeight = metrics.heightPixels.coerceAtLeast(1920)
 
-            val bitmap = decodeSampledBitmapFromUri(uri, reqWidth, reqHeight)
-                ?: decodeDrawableBitmapFromUri(uri)
+            // Read the URI bytes safely once to avoid multiple stream open issues with PhotoPicker
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: return@withContext
+
+            val bitmap = decodeSampledBitmapFromBytes(bytes, reqWidth, reqHeight)
+                ?: decodeDrawableBitmapFromBytes(bytes)
                 ?: return@withContext
 
             val file = saveBitmapAndGet(bitmap)
             val settings = settingsRepository.tileSettingsFlow.first()
             settingsRepository.updateSettings(
-                settings.copy(wallpaperPath = file.absolutePath)
+                settings.copy(
+                    wallpaperPath = file.absolutePath,
+                    wallpaperTimestamp = System.currentTimeMillis()
+                )
             )
         }
-    }.onFailure(::println)
+    }.onFailure { e ->
+        if (e is CancellationException) throw e
+        e.printStackTrace()
+    }
 
-    private fun decodeSampledBitmapFromUri(uri: Uri, reqWidth: Int, reqHeight: Int): Bitmap? {
+    private fun decodeSampledBitmapFromBytes(bytes: ByteArray, reqWidth: Int, reqHeight: Int): Bitmap? {
         val options = BitmapFactory.Options().apply {
             inJustDecodeBounds = true
         }
-        context.contentResolver.openInputStream(uri)?.use { stream ->
-            BitmapFactory.decodeStream(stream, null, options)
-        } ?: return null
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
 
         if (options.outWidth <= 0 || options.outHeight <= 0) return null
 
@@ -55,16 +73,12 @@ class StoreWallpaperPickedUseCase @Inject constructor(
         options.inJustDecodeBounds = false
         options.inPreferredConfig = Bitmap.Config.ARGB_8888
 
-        return context.contentResolver.openInputStream(uri)?.use { stream ->
-            BitmapFactory.decodeStream(stream, null, options)
-        }
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
     }
 
-    private fun decodeDrawableBitmapFromUri(uri: Uri): Bitmap? {
-        return context.contentResolver.openInputStream(uri)?.use { inputStream ->
-            val drawable = Drawable.createFromStream(inputStream, uri.toString()) ?: return null
-            drawableToBitmap(drawable)
-        }
+    private fun decodeDrawableBitmapFromBytes(bytes: ByteArray): Bitmap? {
+        val drawable = Drawable.createFromStream(bytes.inputStream(), "wallpaper") ?: return null
+        return drawableToBitmap(drawable)
     }
 
     private fun saveBitmapAndGet(bitmap: Bitmap): File {

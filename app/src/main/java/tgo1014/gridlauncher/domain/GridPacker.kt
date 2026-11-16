@@ -45,13 +45,25 @@ object GridPacker {
             }
         }
 
-        var frontier = 0
+        // GAP BACKFILL & FIRST-FIT BIN PACKING:
+        // Previously, `frontier = row` advanced monotonically whenever a tile was placed.
+        // If a wide tile (e.g. 6x2) skipped to row 2 because it couldn't fit row 0, `frontier` became 2.
+        // Subsequent smaller tiles (e.g. 2x2) started scanning from row 2, permanently stranding
+        // the remaining hole on row 0.
+        // By starting from the earliest row that still contains at least one unoccupied cell (`lowestIncompleteRow`),
+        // smaller tiles look back and backfill pockets beside earlier wide tiles as promised.
+        fun lowestIncompleteRow(): Int {
+            for (r in occupancy.indices) {
+                if (occupancy[r].any { !it }) return r
+            }
+            return occupancy.size
+        }
 
         return items.map { item ->
             val w = item.width.coerceIn(1, columns)
             val h = item.height.coerceAtLeast(1)
             var placed = false
-            var row = frontier
+            var row = lowestIncompleteRow()
             var placedCol = 0
             var placedRow = 0
             while (!placed) {
@@ -60,7 +72,6 @@ object GridPacker {
                         occupy(col, row, w, h)
                         placedCol = col
                         placedRow = row
-                        frontier = row
                         placed = true
                         break
                     }
@@ -155,7 +166,15 @@ object GridPacker {
 
     /**
      * Compacts an existing grid by sorting tiles by visual row/column order and repacking.
-     * Instantly closes any accidental gaps/holes on the screen.
+     * Instantly closes any accidental gaps/holes on the screen when items are deleted.
+     *
+     * IDEMPOTENCY / STABILITY NOTE:
+     * In mixed-size 2D bin packing (e.g. 1x1, 2x2, 4x2, 8x2 tiles), first-fit placement is order-dependent.
+     * Compacting an already-packed grid is NOT guaranteed to be an idempotent fixed-point because
+     * smaller tiles below can leap into earlier pockets left beside larger tiles when re-evaluated
+     * strictly by (y, x) order.
+     * Therefore, callers should ONLY invoke [compact] when items were genuinely removed or added,
+     * and never run it unconditionally on stable grids (such as on every activity resume).
      */
     fun compact(
         items: List<GridItem>,

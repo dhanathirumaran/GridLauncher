@@ -13,6 +13,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -190,18 +191,32 @@ private fun SettingsBottomSheet(
                 )
             }
             Spacer(Modifier.width(8.dp))
-            Button(
-                onClick = {
-                    if (tileSettings.isTransparencyEnabled) {
-                        onSettingsEvent(SettingsEvent.OnWallpaperRemoved)
-                    } else {
+            if (tileSettings.isTransparencyEnabled) {
+                OutlinedButton(
+                    onClick = { onSettingsEvent(SettingsEvent.OnWallpaperRemoved) }
+                ) {
+                    Text("Remove")
+                }
+                Spacer(Modifier.width(4.dp))
+                Button(
+                    onClick = {
                         singlePhotoPickerLauncher.launch(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                         )
                     }
+                ) {
+                    Text("Change")
                 }
-            ) {
-                Text(if (tileSettings.isTransparencyEnabled) "Remove Image" else "Pick Image")
+            } else {
+                Button(
+                    onClick = {
+                        singlePhotoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    }
+                ) {
+                    Text("Pick Image")
+                }
             }
         }
 

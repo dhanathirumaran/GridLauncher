@@ -83,6 +83,13 @@ class AppsManagerImpl @Inject constructor(
 
     override suspend fun setGrid(grid: List<GridItem>) = appsManagerDataSource.setGrid(grid)
 
+    override suspend fun updateGrid(transform: (currentGrid: List<GridItem>) -> List<GridItem>): List<GridItem> =
+        appsManagerDataSource.updateGrid(transform)
+
+    override suspend fun updateGridAndSmartTiles(
+        transform: (currentGrid: List<GridItem>, wasInitialized: Boolean) -> Pair<List<GridItem>, Boolean>
+    ): List<GridItem> = appsManagerDataSource.updateGridAndSmartTiles(transform)
+
     /**
      * Scans all launchable applications from PackageManager and updates the data source.
      *

@@ -13,6 +13,8 @@ import android.os.SystemClock
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -57,6 +59,8 @@ class MediaPlaybackManager @Inject constructor(
 
     private var activeController: MediaController? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var pauseTimeoutJob: Job? = null
+    private var pausedAtElapsedMs: Long = 0L
 
     private val controllerCallback = object : MediaController.Callback() {
         override fun onPlaybackStateChanged(state: PlaybackState?) {
@@ -131,6 +135,8 @@ class MediaPlaybackManager @Inject constructor(
 
     private fun updateFromController(controller: MediaController?) {
         if (controller == null) {
+            pauseTimeoutJob?.cancel()
+            pausedAtElapsedMs = 0L
             _mediaState.value = MediaPlaybackState(isActive = false)
             return
         }
@@ -141,12 +147,37 @@ class MediaPlaybackManager @Inject constructor(
         val stateCode = playbackState?.state ?: PlaybackState.STATE_NONE
         val isPlaying = stateCode == PlaybackState.STATE_PLAYING
 
-        // Only active if playing or paused (and not stopped/none)
-        val isAlive = stateCode == PlaybackState.STATE_PLAYING ||
-                stateCode == PlaybackState.STATE_PAUSED ||
-                stateCode == PlaybackState.STATE_BUFFERING
-
-        if (!isAlive) {
+        // PAUSE TIMEOUT & CLUTTER MITIGATION:
+        // Android media players (e.g. Spotify, YouTube Music, Podcasts) hold their MediaSession in
+        // STATE_PAUSED indefinitely in the background. Treating STATE_PAUSED as active forever
+        // causes an intrusive 8x2 media tile to permanently occupy the user's home screen.
+        // We provide a 3-minute grace period when paused so users can quickly resume;
+        // after 3 minutes of inactivity, the tile automatically collapses.
+        if (isPlaying || stateCode == PlaybackState.STATE_BUFFERING) {
+            pauseTimeoutJob?.cancel()
+            pausedAtElapsedMs = 0L
+        } else if (stateCode == PlaybackState.STATE_PAUSED) {
+            if (pausedAtElapsedMs == 0L) {
+                pausedAtElapsedMs = SystemClock.elapsedRealtime()
+            }
+            val elapsedSincePause = SystemClock.elapsedRealtime() - pausedAtElapsedMs
+            if (elapsedSincePause > 3 * 60 * 1000L) {
+                _mediaState.value = MediaPlaybackState(isActive = false)
+                return
+            }
+            if (pauseTimeoutJob?.isActive != true) {
+                val remainingGraceMs = (3 * 60 * 1000L - elapsedSincePause).coerceAtLeast(0L)
+                pauseTimeoutJob = scope.launch(Dispatchers.Main) {
+                    delay(remainingGraceMs)
+                    if (activeController?.playbackState?.state != PlaybackState.STATE_PLAYING) {
+                        _mediaState.value = MediaPlaybackState(isActive = false)
+                    }
+                }
+            }
+        } else {
+            // STATE_STOPPED, STATE_NONE, STATE_ERROR, etc.
+            pauseTimeoutJob?.cancel()
+            pausedAtElapsedMs = 0L
             _mediaState.value = MediaPlaybackState(isActive = false)
             return
         }

@@ -23,7 +23,7 @@
 - **Native System Wallpaper Passthrough:**
   - True window-level system wallpaper passthrough (`android:windowShowWallpaper="true"`) for static, live, and dynamic Android wallpapers.
   - Translucent glass tile appearance with customizable opacity/tint slider.
-- **Pinned App Shortcuts & Widgets:** Pin deep shortcuts and AppWidgets from third-party apps directly into the grid.
+- **Pinned App Shortcuts:** Pin deep shortcuts directly from third-party apps into the grid seamlessly with native monochrome styling.
 - **Banking & UPI Compatibility:** 100% hardened for financial and UPI applications (e.g. BHIM, Google Pay, PhonePe) with a zero-accessibility footprint.
 - **Edge-to-Edge:** Native edge-to-edge support with automatic contrast adaptation for system status and navigation bars.
 
@@ -34,7 +34,7 @@ Get the latest APK releases directly from:
 
 1. Navigate to the [Releases](https://github.com/dhanathirumaran/GridLauncher/releases) page.
 2. Under the latest build, expand **Assets**.
-3. Download the `app-debug.apk` to install on your Android device.
+3. Download the `GridLauncher-v1.0.0-build-XX-release.apk` (or `app-release.apk`) to install on your Android device.
 
 ## Screenshots
 

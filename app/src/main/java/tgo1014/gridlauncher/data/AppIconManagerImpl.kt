@@ -51,15 +51,40 @@ class AppIconManagerImpl @Inject constructor(
         }
     }
 
+    /**
+     * Cache directory for application icons and shortcuts.
+     *
+     * BACKUP QUOTA ARCHITECTURE:
+     * We use `context.noBackupFilesDir` instead of `context.filesDir`.
+     *
+     * Android Auto Backup enforces a 25 MB quota per app for cloud backups to Google Drive.
+     * Storing hundreds of high-resolution launcher icon PNGs in `filesDir` consumes 10-20 MB
+     * of cloud storage, risking backup quota exhaustion.
+     *
+     * `noBackupFilesDir` persists across app launches and updates, but is strictly excluded
+     * from remote cloud backup by the Android OS. Any legacy icons from `filesDir/icons` or
+     * `cacheDir` are automatically migrated on first lookup.
+     */
     private val iconsDir: File
-        get() = File(context.filesDir, "icons").apply { if (!exists()) mkdirs() }
+        get() = File(context.noBackupFilesDir, "icons").apply { if (!exists()) mkdirs() }
 
     private fun getIconFile(fileName: String): File {
         val file = File(iconsDir, fileName)
         if (!file.exists()) {
-            val legacyCache = File(context.cacheDir, fileName)
-            if (legacyCache.exists()) {
-                runCatching { legacyCache.copyTo(file, overwrite = true) }
+            val legacyFilesDir = File(context.filesDir, "icons/$fileName")
+            if (legacyFilesDir.exists()) {
+                runCatching {
+                    legacyFilesDir.copyTo(file, overwrite = true)
+                    legacyFilesDir.delete()
+                }
+            } else {
+                val legacyCache = File(context.cacheDir, fileName)
+                if (legacyCache.exists()) {
+                    runCatching {
+                        legacyCache.copyTo(file, overwrite = true)
+                        legacyCache.delete()
+                    }
+                }
             }
         }
         return file
@@ -70,6 +95,29 @@ class AppIconManagerImpl @Inject constructor(
         if (!icon.exists()) {
             return null
         }
+
+        // ICON CACHE INVALIDATION ON APPLICATION UPDATE:
+        // Keying cached icons solely by package name without timestamp invalidation causes updated
+        // app branding to remain permanently stale.
+        // We compare the cached PNG file's last modified timestamp against PackageManager's lastUpdateTime.
+        // If the application was updated after the cached icon was generated, we purge the stale icon
+        // and background files and return null, triggering a fresh icon extraction from PackageManager.
+        val lastUpdateTime = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0)).lastUpdateTime
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, 0).lastUpdateTime
+            }
+        }.getOrNull()
+
+        if (lastUpdateTime != null && lastUpdateTime > icon.lastModified()) {
+            runCatching { icon.delete() }
+            val bg = getIconFile(packageName.appBgPath)
+            if (bg.exists()) runCatching { bg.delete() }
+            return null
+        }
+
         val bg = getIconFile(packageName.appBgPath)
         val bgFile = bg.takeIf { it.exists() }
         val isLight = bgFile?.toBitmap()?.getDominantColor()?.isLight() == true

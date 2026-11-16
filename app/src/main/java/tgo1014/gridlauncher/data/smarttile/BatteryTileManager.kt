@@ -13,6 +13,7 @@ import android.os.Build
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import androidx.core.content.ContextCompat
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
@@ -51,7 +52,19 @@ class BatteryTileManager @Inject constructor(
             addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
             addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
         }
-        val stickyIntent = context.registerReceiver(batteryReceiver, filter)
+        // ANDROID 14+ (API 34+) RECEIVER REGISTRATION HARDENING:
+        // Context.registerReceiver() without an export flag throws SecurityException on Android 14+
+        // when intent filters include non-protected broadcasts (such as Bluetooth ACL events).
+        // Using ContextCompat.registerReceiver with RECEIVER_NOT_EXPORTED ensures compliance across
+        // all API levels, and wrapping in runCatching prevents startup crashes on restricted/sandbox environments.
+        val stickyIntent = runCatching {
+            ContextCompat.registerReceiver(
+                context,
+                batteryReceiver,
+                filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+        }.getOrNull()
         updateBattery(stickyIntent)
     }
 
@@ -60,7 +73,9 @@ class BatteryTileManager @Inject constructor(
         val batteryIntent = if (intent?.action == Intent.ACTION_BATTERY_CHANGED) {
             intent
         } else {
-            context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            runCatching {
+                context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            }.getOrNull()
         }
         val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1

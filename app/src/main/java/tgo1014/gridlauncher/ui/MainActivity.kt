@@ -39,8 +39,10 @@ import tgo1014.gridlauncher.ui.home.HomeScreen
 import tgo1014.gridlauncher.ui.home.HomeScreenViewModel
 import tgo1014.gridlauncher.ui.theme.GridLauncherTheme
 import android.Manifest
+import android.content.BroadcastReceiver
 import android.content.pm.PackageManager
 import androidx.activity.result.contract.ActivityResultContracts
+import tgo1014.gridlauncher.data.smarttile.CurrencyRateManager
 import tgo1014.gridlauncher.data.smarttile.StepCounterManager
 import tgo1014.gridlauncher.data.smarttile.WeatherManager
 import javax.inject.Inject
@@ -60,6 +62,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var weatherManager: WeatherManager
+
+    @Inject
+    lateinit var currencyRateManager: CurrencyRateManager
 
     @Inject
     lateinit var calendarEventManager: tgo1014.gridlauncher.data.calendar.CalendarEventManager
@@ -91,6 +96,24 @@ class MainActivity : ComponentActivity() {
         // User answered or dismissed the default launcher prompt
     }
 
+    private val packageChangeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val action = intent?.action ?: return
+            if (action == Intent.ACTION_PACKAGE_ADDED ||
+                action == Intent.ACTION_PACKAGE_REMOVED ||
+                action == Intent.ACTION_PACKAGE_REPLACED
+            ) {
+                // Invalidate package caches so new or uninstalled clock/calendar apps are reflected immediately
+                calendarEventManager.invalidatePackageCache()
+                tgo1014.gridlauncher.data.clock.ClockAppManager.invalidateCache()
+
+                // Immediately trigger grid reconciliation on package changes without waiting for onResume
+                updateAppListJob?.cancel()
+                updateAppListJob = lifecycleScope.launch { updateAppListUseCase() }
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -102,6 +125,16 @@ class MainActivity : ComponentActivity() {
         }
         askToBeDefaultLauncher()
         checkAndRequestSmartTilePermissions()
+
+        val packageFilter = IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED)
+            addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addAction(Intent.ACTION_PACKAGE_REPLACED)
+            addDataScheme("package")
+        }
+        runCatching {
+            registerReceiver(packageChangeReceiver, packageFilter)
+        }
     }
 
     private var updateAppListJob: kotlinx.coroutines.Job? = null
@@ -112,6 +145,14 @@ class MainActivity : ComponentActivity() {
         updateAppListJob = lifecycleScope.launch { updateAppListUseCase() }
         calendarEventManager.refresh()
         alarmClockManager.refresh()
+
+        // STALENESS SAFEGUARDS:
+        // Weather and currency are automatically checked on resume.
+        // WeatherManager internally throttles network calls to 15 minutes.
+        // CurrencyRateManager checks if the calendar day has changed since the last fetch.
+        weatherManager.fetchWeatherAsync()
+        lifecycleScope.launch { currencyRateManager.fetchRateIfNeeded() }
+
         tgo1014.gridlauncher.data.smarttile.MediaPlaybackManager.sync()
     }
 
@@ -251,4 +292,8 @@ class MainActivity : ComponentActivity() {
      */
     private val darkScrim = android.graphics.Color.argb(0x80, 0x1b, 0x1b, 0x1b)
 
+    override fun onDestroy() {
+        super.onDestroy()
+        runCatching { unregisterReceiver(packageChangeReceiver) }
+    }
 }

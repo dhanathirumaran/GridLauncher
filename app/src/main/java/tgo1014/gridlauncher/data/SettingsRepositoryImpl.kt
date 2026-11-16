@@ -13,6 +13,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import tgo1014.gridlauncher.domain.SettingsRepository
 import tgo1014.gridlauncher.domain.models.TileSettings
 import javax.inject.Inject
@@ -62,6 +63,7 @@ class SettingsRepositoryImpl @Inject constructor(
                     cornerRadius = obj["cornerRadius"]?.jsonPrimitive?.intOrNull ?: base.cornerRadius,
                     isAppLabelsHidden = obj["isAppLabelsHidden"]?.jsonPrimitive?.booleanOrNull ?: base.isAppLabelsHidden,
                     wallpaperPath = obj["wallpaperPath"]?.jsonPrimitive?.contentOrNull ?: base.wallpaperPath,
+                    wallpaperTimestamp = obj["wallpaperTimestamp"]?.jsonPrimitive?.longOrNull ?: base.wallpaperTimestamp,
                     blurRadius = obj["blurRadius"]?.jsonPrimitive?.intOrNull ?: base.blurRadius,
                     tintAlpha = obj["tintAlpha"]?.jsonPrimitive?.floatOrNull ?: base.tintAlpha,
                 )

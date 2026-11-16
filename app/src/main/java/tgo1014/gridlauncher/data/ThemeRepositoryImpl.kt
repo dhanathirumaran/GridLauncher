@@ -41,6 +41,7 @@ class ThemeRepositoryImpl @Inject constructor(
     }
 
     private var lastWallpaperPath: String? = null
+    private var lastWallpaperTimestamp: Long = 0L
     private var cachedSeedColor: Color? = null
 
     private fun getCurrentTheme(settings: TileSettings): Theme {
@@ -49,11 +50,13 @@ class ThemeRepositoryImpl @Inject constructor(
             return SystemDefault
         }
         val path = settings.wallpaperPath
-        val seedColor = if (path == lastWallpaperPath && cachedSeedColor != null) {
+        val timestamp = settings.wallpaperTimestamp
+        val seedColor = if (path == lastWallpaperPath && timestamp == lastWallpaperTimestamp && cachedSeedColor != null) {
             cachedSeedColor
         } else {
             val color = calculateSeedColor(file)
             lastWallpaperPath = path
+            lastWallpaperTimestamp = timestamp
             cachedSeedColor = color
             color
         }

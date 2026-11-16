@@ -61,4 +61,39 @@ class AddShortcutToGridUseCaseTest {
         assert(shortcut != null)
         assert(shortcut?.x == 2 && shortcut?.y == 0)
     }
+
+    @Test
+    fun insertShortcutIntoFullRowDoesNotDisplaceRowZeroItems() = runTurbineTest {
+        val gridFlow = appsManager.homeGridFlow.testIn(it.backgroundScope)
+        val fullRowZeroGrid = listOf(
+            GridItem(id = 1, width = 2, height = 2, x = 0, y = 0),
+            GridItem(id = 2, width = 2, height = 2, x = 2, y = 0),
+            GridItem(id = 3, width = 2, height = 2, x = 4, y = 0),
+            GridItem(id = 4, width = 2, height = 2, x = 6, y = 0),
+        )
+        appsManager.setGrid(fullRowZeroGrid)
+        assert(gridFlow.awaitItem().isEmpty())
+        useCase(
+            shortcutId = "shortcut_new",
+            packageName = "com.spotify.music",
+            label = "Music",
+            iconPath = null,
+            intentUri = null
+        )
+        val newGrid = gridFlow.expectMostRecentItem()
+        // Row 0 items must remain exactly where they were without being displaced
+        val item1 = newGrid.find { it.id == 1 }
+        val item2 = newGrid.find { it.id == 2 }
+        val item3 = newGrid.find { it.id == 3 }
+        val item4 = newGrid.find { it.id == 4 }
+        assert(item1?.x == 0 && item1?.y == 0)
+        assert(item2?.x == 2 && item2?.y == 0)
+        assert(item3?.x == 4 && item3?.y == 0)
+        assert(item4?.x == 6 && item4?.y == 0)
+
+        // New shortcut must be placed on the next row (y = 2) without jumping to index 2
+        val shortcut = newGrid.find { it.shortcutId == "shortcut_new" }
+        assert(shortcut != null)
+        assert(shortcut?.y == 2 && shortcut?.x == 0)
+    }
 }

@@ -55,11 +55,20 @@ private fun HomeScreen(
     onTileEvent: (TileEvent) -> Unit = {},
 ) = Box(modifier = Modifier.fillMaxSize()) {
     val hazeState = remember { HazeState() }
-    if (state.tileSettings.isTransparencyEnabled && state.tileSettings.wallpaperFile != null) {
-        key(state.tileSettings.wallpaperFile) {
+    val wallpaperFile = state.tileSettings.wallpaperFile
+    if (state.tileSettings.isTransparencyEnabled && wallpaperFile != null) {
+        // WALLPAPER CACHE INVALIDATION:
+        // Coil caches decoded bitmaps using the target data key. Because the wallpaper is always
+        // saved to the same file path ("wallpaper.png"), Coil will reuse the stale cached bitmap
+        // unless a unique cache key is supplied. By embedding wallpaperTimestamp and lastModified,
+        // Compose's `key(...)` recomposes immediately and Coil loads the fresh wallpaper bitmap.
+        val cacheKey = "${wallpaperFile.absolutePath}_${state.tileSettings.wallpaperTimestamp}_${wallpaperFile.lastModified()}"
+        key(cacheKey) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
-                    .data(state.tileSettings.wallpaperFile)
+                    .data(wallpaperFile)
+                    .memoryCacheKey(cacheKey)
+                    .diskCacheKey(cacheKey)
                     .crossfade(true)
                     .build(),
                 contentScale = ContentScale.Crop,

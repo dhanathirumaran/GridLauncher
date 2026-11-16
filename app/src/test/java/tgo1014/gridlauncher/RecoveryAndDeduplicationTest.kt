@@ -76,6 +76,7 @@ class RecoveryAndDeduplicationTest {
     fun `TileSettings defaults to no wallpaper and transparency disabled`() {
         val settings = TileSettings()
         org.junit.Assert.assertNull(settings.wallpaperPath)
+        assertEquals(0L, settings.wallpaperTimestamp)
         org.junit.Assert.assertFalse(settings.isTransparencyEnabled)
         assertEquals(30, settings.blurRadius)
         assertEquals(0.10f, settings.tintAlpha, 0.001f)
@@ -86,11 +87,13 @@ class RecoveryAndDeduplicationTest {
         val jsonWithoutWallpaper = """{"blurRadius": 30}"""
         val recoveredWithout = SettingsRepositoryImpl.recoverTileSettings(jsonWithoutWallpaper, json, null)
         org.junit.Assert.assertFalse(recoveredWithout.isTransparencyEnabled)
+        assertEquals(0L, recoveredWithout.wallpaperTimestamp)
 
-        val jsonWithWallpaper = """{"wallpaperPath": "/data/user/0/wallpaper.png", "blurRadius": 25}"""
+        val jsonWithWallpaper = """{"wallpaperPath": "/data/user/0/wallpaper.png", "wallpaperTimestamp": 123456789, "blurRadius": 25}"""
         val recoveredWith = SettingsRepositoryImpl.recoverTileSettings(jsonWithWallpaper, json, null)
         assertTrue(recoveredWith.isTransparencyEnabled)
         assertEquals("/data/user/0/wallpaper.png", recoveredWith.wallpaperPath)
+        assertEquals(123456789L, recoveredWith.wallpaperTimestamp)
         assertEquals(25, recoveredWith.blurRadius)
     }
 
@@ -108,5 +111,51 @@ class RecoveryAndDeduplicationTest {
         val filtered = items.filterNot { it.smartTileType == tgo1014.gridlauncher.ui.models.SmartTileType.LOCK_SCREEN }
         assertEquals(1, filtered.size)
         assertEquals(tgo1014.gridlauncher.ui.models.SmartTileType.FLASHLIGHT, filtered.first().smartTileType)
+    }
+
+    @Test
+    fun `AlarmClockManager computeDayLabel handles month-end and year-end boundaries accurately`() {
+        // Today is Dec 31, 2026 at 10:00 PM
+        val dec31 = Calendar.getInstance().apply {
+            set(2026, Calendar.DECEMBER, 31, 22, 0, 0)
+        }.timeInMillis
+
+        // Alarm is Jan 1, 2027 at 7:00 AM (next morning)
+        val jan1 = Calendar.getInstance().apply {
+            set(2027, Calendar.JANUARY, 1, 7, 0, 0)
+        }.timeInMillis
+
+        // Today is Dec 1, 2026 at 10:00 AM
+        val dec1 = Calendar.getInstance().apply {
+            set(2026, Calendar.DECEMBER, 1, 10, 0, 0)
+        }.timeInMillis
+
+        // On Dec 31, Jan 1 is Tomorrow
+        val labelOnDec31 = tgo1014.gridlauncher.data.clock.AlarmClockManager.computeDayLabel(jan1, dec31)
+        assertEquals("Tomorrow", labelOnDec31)
+
+        // On Dec 1, Jan 1 is NOT Tomorrow (it is a month away, showing day of week e.g. Fri)
+        val labelOnDec1 = tgo1014.gridlauncher.data.clock.AlarmClockManager.computeDayLabel(jan1, dec1)
+        org.junit.Assert.assertNotEquals("Tomorrow", labelOnDec1)
+
+        // Same day alarm is Today
+        val labelToday = tgo1014.gridlauncher.data.clock.AlarmClockManager.computeDayLabel(dec1 + 3600_000L, dec1)
+        assertEquals("Today", labelToday)
+    }
+
+    @Test
+    fun `smart tiles are strictly deduplicated by tile type`() {
+        val items = listOf(
+            tgo1014.gridlauncher.ui.models.GridItem(id = 1, itemType = tgo1014.gridlauncher.ui.models.GridItemType.SMART_TILE, smartTileType = tgo1014.gridlauncher.ui.models.SmartTileType.WEATHER),
+            tgo1014.gridlauncher.ui.models.GridItem(id = 2, itemType = tgo1014.gridlauncher.ui.models.GridItemType.SMART_TILE, smartTileType = tgo1014.gridlauncher.ui.models.SmartTileType.WEATHER),
+            tgo1014.gridlauncher.ui.models.GridItem(id = 3, itemType = tgo1014.gridlauncher.ui.models.GridItemType.SMART_TILE, smartTileType = tgo1014.gridlauncher.ui.models.SmartTileType.BATTERY),
+            tgo1014.gridlauncher.ui.models.GridItem(id = 4, itemType = tgo1014.gridlauncher.ui.models.GridItemType.SMART_TILE, smartTileType = tgo1014.gridlauncher.ui.models.SmartTileType.BATTERY)
+        )
+        val seenTypes = mutableSetOf<tgo1014.gridlauncher.ui.models.SmartTileType>()
+        val deduped = items.filter { item ->
+            item.smartTileType != null && seenTypes.add(item.smartTileType!!)
+        }
+        assertEquals(2, deduped.size)
+        assertEquals(listOf(tgo1014.gridlauncher.ui.models.SmartTileType.WEATHER, tgo1014.gridlauncher.ui.models.SmartTileType.BATTERY), deduped.map { it.smartTileType })
     }
 }

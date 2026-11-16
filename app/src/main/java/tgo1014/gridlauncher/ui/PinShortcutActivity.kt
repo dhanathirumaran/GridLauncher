@@ -61,6 +61,20 @@ class PinShortcutActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // SECURITY & ACTION INTENT VERIFICATION:
+        // PinShortcutActivity is exported so third-party apps can request pinned shortcuts via LauncherApps.
+        // However, without strict action checking, any app could launch this activity directly with spoofed
+        // labels, fake icons, and arbitrary payload intents. We allow ONLY explicit shortcut pin actions.
+        val validActions = setOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) LauncherApps.ACTION_CONFIRM_PIN_SHORTCUT else "android.content.pm.action.CONFIRM_PIN_SHORTCUT",
+            "com.android.launcher.action.INSTALL_SHORTCUT"
+        )
+        if (intent?.action !in validActions) {
+            android.util.Log.w("PinShortcutActivity", "Rejected invocation with invalid/spoofed action: ${intent?.action}")
+            finish()
+            return
+        }
+
         val launcherApps = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             getSystemService(Context.LAUNCHER_APPS_SERVICE) as? LauncherApps
         } else null
@@ -77,6 +91,23 @@ class PinShortcutActivity : ComponentActivity() {
         var shortcutBitmap: Bitmap? = null
 
         if (pinItemRequest != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // REJECT APPWIDGET PIN REQUESTS:
+            // GridLauncher is an icon grid launcher with native Jetpack Compose smart live tiles.
+            // It does not implement an AppWidgetHost. Accepting an AppWidget pin request would create
+            // a broken, blank tile. We explicitly reject widget pin requests here.
+            if (pinItemRequest.requestType != LauncherApps.PinItemRequest.REQUEST_TYPE_SHORTCUT) {
+                android.util.Log.i("PinShortcutActivity", "Rejected PinItemRequest: AppWidgets are not supported without AppWidgetHost.")
+                Toast.makeText(this, "Widgets are not supported by GridLauncher", Toast.LENGTH_SHORT).show()
+                finish()
+                return
+            }
+
+            if (!pinItemRequest.isValid) {
+                android.util.Log.w("PinShortcutActivity", "PinItemRequest is invalid.")
+                finish()
+                return
+            }
+
             val shortcutInfo: ShortcutInfo? = pinItemRequest.shortcutInfo
             if (shortcutInfo != null) {
                 label = shortcutInfo.shortLabel?.toString()
@@ -91,9 +122,16 @@ class PinShortcutActivity : ComponentActivity() {
                 }.getOrNull() ?: runCatching {
                     packageManager.getApplicationIcon(packageName)
                 }.getOrNull()
+            } else {
+                finish()
+                return
             }
         } else {
-            // Legacy shortcut broadcast extra
+            // Legacy shortcut broadcast extra (only allowed if action matches INSTALL_SHORTCUT)
+            if (intent.action != "com.android.launcher.action.INSTALL_SHORTCUT") {
+                finish()
+                return
+            }
             val legacyName = intent.getStringExtra(Intent.EXTRA_SHORTCUT_NAME)
             val legacyIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 intent.getParcelableExtra(Intent.EXTRA_SHORTCUT_INTENT, Intent::class.java)
@@ -174,10 +212,11 @@ class PinShortcutActivity : ComponentActivity() {
                             TextButton(
                                 onClick = {
                                     lifecycleScope.launch {
+                                        val shortcutKey = if (packageName.isNotEmpty()) "${packageName}_$shortcutId" else shortcutId
                                         val iconPath = when {
-                                            shortcutDrawable != null -> appIconManager.saveShortcutIcon(shortcutId, shortcutDrawable)
-                                            shortcutBitmap != null -> appIconManager.saveShortcutIcon(shortcutId, shortcutBitmap)
-                                            previewBitmap != null -> appIconManager.saveShortcutIcon(shortcutId, previewBitmap)
+                                            shortcutDrawable != null -> appIconManager.saveShortcutIcon(shortcutKey, shortcutDrawable)
+                                            shortcutBitmap != null -> appIconManager.saveShortcutIcon(shortcutKey, shortcutBitmap)
+                                            previewBitmap != null -> appIconManager.saveShortcutIcon(shortcutKey, previewBitmap)
                                             else -> null
                                         }
                                         val addResult = addShortcutToGridUseCase(

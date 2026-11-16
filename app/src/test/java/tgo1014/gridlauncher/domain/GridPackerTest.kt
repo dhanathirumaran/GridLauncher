@@ -91,4 +91,27 @@ class GridPackerTest {
         assertEquals(2, packed[1].x)
         assertEquals(0, packed[1].y)
     }
+
+    @Test
+    fun `gap beside wide tile is properly backfilled by subsequent smaller tile`() {
+        val tileA = item(1, 4, 2) // fits col 0..3, row 0..1 (leaving col 4..7 empty in row 0)
+        val tileB = item(2, 6, 2) // cannot fit row 0 (needs 6 cols, only 4 free), so placed at row 2
+        val tileC = item(3, 4, 2) // fits in row 0 at col 4!
+
+        val packed = GridPacker.packTiles(listOf(tileA, tileB, tileC), columns = 8)
+
+        val packedA = packed.first { it.id == 1 }
+        val packedB = packed.first { it.id == 2 }
+        val packedC = packed.first { it.id == 3 }
+
+        assertEquals(0, packedA.x)
+        assertEquals(0, packedA.y)
+
+        assertEquals(0, packedB.x)
+        assertEquals(2, packedB.y)
+
+        // tileC must backfill row 0 at col 4
+        assertEquals(4, packedC.x)
+        assertEquals(0, packedC.y)
+    }
 }

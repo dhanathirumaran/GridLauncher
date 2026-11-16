@@ -62,18 +62,51 @@ class CalendarEventManager @Inject constructor(
             "com.digibites.calendar"
         )
 
+        @Volatile
+        private var cachedCalendarPackages: Set<String>? = null
+
+        fun invalidatePackageCache() {
+            cachedCalendarPackages = null
+        }
+
+        fun prewarmPackageCache(context: Context) {
+            if (cachedCalendarPackages != null) return
+            synchronized(this) {
+                if (cachedCalendarPackages != null) return
+                val set = HashSet(KNOWN_CALENDAR_PACKAGES)
+                runCatching {
+                    val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR)
+                    context.packageManager.resolveActivity(intent, 0)?.activityInfo?.packageName?.let {
+                        set.add(it.lowercase())
+                    }
+                    context.packageManager.queryIntentActivities(intent, 0).forEach { ri ->
+                        ri.activityInfo?.packageName?.let { set.add(it.lowercase()) }
+                    }
+                }
+                cachedCalendarPackages = set
+            }
+        }
+
+        /**
+         * Checks if the package name is a Calendar app by checking known OEM calendar package names
+         * or querying system calendar category handlers.
+         *
+         * MAIN-THREAD JANK PREVENTION:
+         * Querying PackageManager via IPC (resolveActivity, queryIntentActivities) for every item
+         * inside Compose composition causes 5 Binder transactions per tile and massive UI lag.
+         * Results are pre-warmed on a background dispatcher and cached in [cachedCalendarPackages],
+         * reducing tile composition checks to instantaneous O(1) set operations.
+         */
         fun isCalendarApp(packageName: String, context: Context? = null): Boolean {
             val lower = packageName.lowercase()
             if (lower in KNOWN_CALENDAR_PACKAGES) return true
             if (lower.endsWith(".calendar") || lower.endsWith(".calendar.pro")) return true
+
+            cachedCalendarPackages?.let { return lower in it }
+
             if (context != null) {
-                runCatching {
-                    val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR)
-                    val resolveInfo = context.packageManager.resolveActivity(intent, 0)
-                    if (resolveInfo?.activityInfo?.packageName == packageName) return true
-                    val activities = context.packageManager.queryIntentActivities(intent, 0)
-                    if (activities.any { it.activityInfo?.packageName == packageName }) return true
-                }
+                prewarmPackageCache(context)
+                return cachedCalendarPackages?.contains(lower) == true
             }
             return false
         }
@@ -123,7 +156,12 @@ class CalendarEventManager @Inject constructor(
                 addAction(Intent.ACTION_DATE_CHANGED)
                 addAction(Intent.ACTION_TIMEZONE_CHANGED)
             }
-            context.registerReceiver(timeTickReceiver, filter)
+            ContextCompat.registerReceiver(
+                context,
+                timeTickReceiver,
+                filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
         } catch (_: Exception) {}
 
         refresh()
